@@ -102,8 +102,7 @@ var send = {
 var speed = { // -- handles gathing speed information
     start: 0,
     realTime: function(chars){
-        var time = new Date();
-        var now = time.getTime();
+        var now = new Date().getTime();
         if(chars){return (60000/((now-speed.start)/chars)/5).toFixed(2);} // return words per minute
         else { speed.start = now; }                                       // no param/chars starts the clock
     },
