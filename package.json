@@ -1,0 +1,29 @@
+{
+  "name": "StrangerDanger",
+  "version": "2.0.0",
+  "description": "This is a test web app for strangers finding common interest and chatting about it in real time",
+  "main": "serve.js",
+  "scripts": {
+    "test": "node serve.js",
+    "postinstall": "./node_modules/bower/bin/bower install ./views/bower.json",
+    "start": "node serve.js"
+  },
+  "author": "Paul Beaudet",
+  "license": "AGPL-1.0",
+  "dependencies": {
+    "bower": "1.5.3",
+    "bcryptjs": "^2.3.0",
+    "body-parser": "^1.14.1",
+    "client-sessions": "^0.7.0",
+    "compression": "^1.6.0",
+    "csurf": "^1.8.3",
+    "express": "^4.13.3",
+    "jade": "^1.11.0",
+    "mongoose": "^4.2.2",
+    "socket.io": "^1.4.5"
+  },
+  "engines": {
+    "node": "4.2.4",
+    "npm": "2.14.12"
+  }
+}
