@@ -2,6 +2,7 @@
 var NUM_ENTRIES = 6;   // number of dialog rows allowed in the application
 var OPEN_HELM = 25;    // time before helm can be taken by interuption
 var FULL_TIMEOUT = 15; // timeout for long inactivity
+var MAX_MONO = 60;     // maximum time that can be used to monologe
 var PAUSE_TIMEOUT = 3; // inactivity timeout
 
 var hist = {
@@ -67,14 +68,13 @@ var myTurn = {
         }else{                              // not this users turn
             if(myTurn.elapsed > OPEN_HELM || myTurn.idle > PAUSE_TIMEOUT){myTurn.set(true);} // check for my turn
         }
-        if(myTurn.idle > FULL_TIMEOUT){
-            console.log('disconnecting');
-            sock.et.emit('end');
-            hist.refresh();
-            myTurn.set(false);
-            myTurn.idle = 0;
-            send.clear();
-        } else {myTurn.clock = setTimeout(myTurn.check, 1000);} // only set timeout in non-disconnect events
+        if(myTurn.idle > FULL_TIMEOUT || myTurn.elapsed > MAX_MONO){ // disconnect conditions
+            sock.et.emit('end');                                     // signal to server your are ready for a new partner
+            hist.refresh();                                          // clear out going conversation
+            myTurn.set(false);                                       // block typing
+            myTurn.idle = 0;                                         // reset idle to zero
+            send.clear();                                            // be sure text box is cleared when disconnecting
+        } else {myTurn.clock = setTimeout(myTurn.check, 1000);}      // set next timeout when still connected
     }
 }
 
