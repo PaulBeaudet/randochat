@@ -73,6 +73,7 @@ var myTurn = {
             hist.refresh();
             myTurn.set(false);
             myTurn.idle = 0;
+            send.clear();
         } else {myTurn.clock = setTimeout(myTurn.check, 1000);} // only set timeout in non-disconnect events
     }
 }
