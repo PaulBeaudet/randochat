@@ -7,7 +7,10 @@ var when = {
     connected: function(socket){
         var cookieCrums = socket.request.headers.cookie.split('=');   // split correct cookie out
         var user = cookie.user(cookieCrums[cookieCrums.length - 1]);  // decrypt email from cookie, make it userID
-        if(user){user = user.content.user}                            // check for existing cookie
+        if(user){
+            // console.log(user);
+            user = user.content.user;
+        }                            // check for existing cookie
         else{return 0};                                               // this is a nameless (expired) socket!
 
         if(user.name){                                                // given a valid user connected
@@ -50,20 +53,18 @@ var sock = {
 }
 
 var userAct = { // dep: mongo
-    auth: function ( render ){
-        return function(req, res){
-            if(req.session.user && req.session.user.name){
-                console.log(req.session.user.name + ' joined')
-                res.render(render);
-            } else {res.redirect('/');}
-        }
+    auth: function(req, res){
+        if(req.session.user && req.session.user.name){
+            console.log(req.session.user.name + ' joined')
+            res.render('chat');
+        } else {res.redirect('/signin');}
     },
     name: function ( req, res ){
         if(req.body.name){
             req.session.user = {name: req.body.name};
-            res.redirect('/chat');
-        } else {
             res.redirect('/');
+        } else {
+            res.redirect('/signin'); // maybe re-render with an error message
         }
     }
 }
@@ -73,7 +74,7 @@ var cookie = { // depends on client-sessions and mongo
     ingredients: {
         cookieName: 'session',
         secret: process.env.SESSION_SECRET,
-        duration: 5 * 365 * 24 * 60 * 60 * 1000,  // cookie times out in 5 years
+        duration: 365 * 24 * 60 * 60 * 1000,  // cookie times out in x amount of time
     },
     meWant: function(){return cookie.session(cookie.ingredients);},
     user: function(content){return cookie.session.util.decode(cookie.ingredients, content);}, // decode cookie for socket reactions
@@ -93,9 +94,9 @@ var serve = {
 
         app.use(serve.express.static(__dirname + '/views')); // serve page dependancies (sockets, jquery, bootstrap)
         var router = serve.express.Router();
-        router.get('/', function(req, res){res.render('name');});
-        router.post('/', userAct.name);
-        router.get('/chat', userAct.auth('chat'));
+        router.get('/', userAct.auth);
+        router.get('/signin', function(req, res){res.render('name');});
+        router.post('/signin', userAct.name);
         app.use(router);
 
         sock.listen(http);                            // listen for socket connections
