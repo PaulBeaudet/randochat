@@ -59,13 +59,18 @@ var userAct = { // dep: mongo
             res.render('chat');
         } else {res.redirect('/signin');}
     },
-    name: function ( req, res ){
+    name: function(req, res){
         if(req.body.name){
             req.session.user = {name: req.body.name};
             res.redirect('/');
         } else {
             res.redirect('/signin'); // maybe re-render with an error message
         }
+    },
+    room: function(req, res){ // check if this is a legit room else redirect to randochat
+        if(req.params.username === 'easteregg'){
+            userAct.auth(req, res);
+        } else {res.redirect('/');}
     }
 }
 
@@ -94,9 +99,10 @@ var serve = {
 
         app.use(serve.express.static(__dirname + '/views')); // serve page dependancies (sockets, jquery, bootstrap)
         var router = serve.express.Router();
-        router.get('/', userAct.auth);
-        router.get('/signin', function(req, res){res.render('name');});
-        router.post('/signin', userAct.name);
+        router.get('/', userAct.auth);                                  // main route for getting into a randochat if you have a name
+        router.get('/signin', function(req, res){res.render('name');}); // where one goes to get a name
+        router.post('/signin', userAct.name);                           // how one create their name
+        router.get('/:username', userAct.room);                         // personal rooms for special users
         app.use(router);
 
         sock.listen(http);                            // listen for socket connections
