@@ -4,13 +4,19 @@ extends ./header.jade
 block content
     // nav at top of page
     include navbar.jade
-    // user gives there name
+    // user gives their name
     #signup.jumbotron
-        h1 What is your name?
+        h1 What is your NAME?*
         form(method='post')
-            // input(type='hidden', name="_csrf", value=csrfToken)
+            input(type='hidden', name="_csrf", value=csrfToken)
             .form-group
-                label(for='usr') NAME
-                input#signupEmail.form-control(type='text', name='name', required='ture')
-            input#submit.btn.btn-lg.btn-success(type='submit', value='submit')
+                label(for='usr') NAME, (only requirment to continue)
+                input.form-control(type='text', name='name', required='ture')
+            .form-group
+                label(for='signupPassword')  Password (optional, with account)
+                input.form-control(type='password', name='password')
+            if err
+                p Taken name or wrong password, TO THE ABYSS! WOOSH! error= #{err}
+            input#submit.btn.btn-lg.btn-success(type='submit', value='Ready to chat!')
+    i *subject to ask for favorite color and quest at later date
 include dependencies.jade
