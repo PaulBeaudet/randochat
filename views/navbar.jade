@@ -1,9 +1,17 @@
 // -- navbar.jade ~ copyright 2016 Paul Beaudet
-.header.clearfix
-    nav
-        ul.nav.nav-pills.pull-right
-            li(role='presentation')
-                a(href='/signin') Name/Sign-in
-            li(role='presentation')
-                a(href='/') Refresh Chat
-        h3#title.text-muted Randochat!
+.navbar.navbar-inverse.navebar-fixed-top
+    .container
+        .navbar-header
+            button.navbar-toggle(type= "button", data-toggle= "collapse", data-target= ".navbar-collapse")
+                span.icon-bar
+                span.icon-bar
+                span.icon-bar
+
+            a.navbar-brand(href='/') RandoChat!
+
+        .navbar-collapse.collapse
+            ul.nav.navbar-nav.navbar-right
+                li
+                    a(href='/signin') name / login
+                li
+                    a(href='#') About
