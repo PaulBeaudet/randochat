@@ -1,5 +1,5 @@
 // client.js ~ Copyright 2015 Paul Beaudet ~ MIT License see LICENSE_MIT for detials
-var NUM_ENTRIES = 6;   // number of dialog rows allowed in the application
+var NUM_ENTRIES = 4;   // number of dialog rows allowed in the application
 var OPEN_HELM = 25;    // time before helm can be taken by interuption
 var FULL_TIMEOUT = 15; // timeout for long inactivity
 var MAX_MONO = 60;     // maximum time that can be used to monologe
@@ -116,7 +116,7 @@ var sock = {  // -- handle socket.io connection events
         sock.nick = nickName;           // learn ones own name
         sock.et.on('chat', hist.chat);  // recieves real time chat information
         sock.et.on('interrupt', myTurn.interrupt); // recieves new chat partners or interuptions from partner
-        sock.et.on('connect_error', function(){window.location.replace('/chat');}); // reload on connection error
+        sock.et.on('connect_error', function(){window.location.replace('/');}); // reload on connection error
         sock.et.on('start', function(partner){
             console.log('connecting with ' + partner );
             send.to = partner;          // recognize who you're talking to
