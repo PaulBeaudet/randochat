@@ -74,6 +74,7 @@ var myTurn = {
             myTurn.set(false);                                       // block typing
             myTurn.idle = 0;                                         // reset idle to zero
             send.clear();                                            // be sure text box is cleared when disconnecting
+            $('#topnav').fadeIn();
         } else {myTurn.clock = setTimeout(myTurn.check, 1000);}      // set next timeout when still connected
     }
 }
@@ -122,6 +123,7 @@ var sock = {  // -- handle socket.io connection events
             send.to = partner;          // recognize who you're talking to
             myTurn.set(true);           // give the ability to talk
             myTurn.start();             // signal begining of turn
+            $('#topnav').fadeOut()
         });
     }
 }
