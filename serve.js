@@ -1,6 +1,4 @@
 // serve.js ~ Copyright 2015 Paul Beaudet ~ Licence Affero GPL ~ See LICENCE_AFFERO for details
-const RECONSIDER = 10000;  // milliseconds to rematching
-
 var when = {
     idle: true,
     users: [],
@@ -16,9 +14,7 @@ var when = {
         if(user.name){                                                // given a valid user connected
             console.log(user.name + ' connected id:' + socket.id);    // log connection event
             sock.ets.to(socket.id).emit('youAre', user.name);         // make sure the socket knows who it is
-
-            // connect this user with another or put them on the waiting list
-            when.match(socket.id);
+            when.match(socket.id); // connect this user with another or put them on the waiting list
         }
         return user.name;
     },
@@ -75,7 +71,8 @@ var userAct = { // dep: mongo
             mongo.user.findOne({name: req.body.name}, function(err, rando){          // find a rando in our db
                 if(rando){                                                           // say one of our little randos exist
                     if(userAct.hash.compareSync(req.body.password, rando.password)){ // check if their password is right
-                        userAct.chat(req, res);                                      // TODO: log in to user dash
+                        req.session.user = {name: req.body.name, type: 'free'};
+                        res.redirect('/');
                     } else {                                                         // if password is wrong case
                         res.render('name', {csrfToken: req.csrfToken, err: true});   // re-render name page
                     }
@@ -83,20 +80,23 @@ var userAct = { // dep: mongo
                     var user = new mongo.user({                                      // create user document
                         name: req.body.name,                                         // give rando's name
                         password: userAct.hash.hashSync(req.body.password, userAct.hash.genSaltSync(10)), // hash rando's password
-                        type: 'freeloader'                                           // what type of account is this?
+                        type: 'free'                                                 // what type of account is this?
                     });
                     user.save(function(err){
-                        if(err){res.render('name', {csrfToken: req.csrfToken, err: err});} // user failed to save
-                        else{userAct.chat(req, res);}                                      // user saved, log em in
+                        if(err){
+                            res.render('name', {csrfToken: req.csrfToken, err: err});// user failed to save
+                        } else {                                                     // user successfully saved, log em in
+                            req.session.user = {name: req.body.name, type: 'free'};
+                            res.redirect('/');
+                        }                                      
                     });
                 }
             });
-        } else if(req.body.name){userAct.chat(req, res);}  // no password but we have a name condition
+        } else if(req.body.name){ // no password but we have a name condition
+            req.session.user = {name: req.body.name, type: 'temp'};
+            res.redirect('/');
+        }
         else {res.redirect('/signin');}                    // maybe re-render with an error message
-    },
-    chat: function(req, res){
-        req.session.user = {name: req.body.name};
-        res.redirect('/');
     },
     room: function(req, res){ // check if this is a legit room else redirect to randochat
         mongo.user.findOne({name: req.params.username}, function(err, rando){
