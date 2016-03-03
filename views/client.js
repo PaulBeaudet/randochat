@@ -21,8 +21,9 @@ var convo = {
         $('#history').append($('<div class="message"/>').append(textDiv, nameDiv));
     },
     rm: function(){
-        $('.message').remove();
-        convo.items = 0;
+        $('.message').remove(); // remove all messages
+        convo.items = 0;        // reset number of messages added
+        $('#wpm').html('');     // reset wpm counter
     }
 }
 
@@ -93,7 +94,7 @@ var speed = { // -- handles gathing speed information
     start: 0,
     realTime: function(chars){
         var now = new Date().getTime();
-        if(chars){return (60000/((now-speed.start)/chars)/5).toFixed(2);} // return words per minute
+        if(chars){return (60000/((now-speed.start)/chars)/5).toFixed();} // return words per minute
         else { speed.start = now; }                                       // no param/chars starts the clock
     },
 }
