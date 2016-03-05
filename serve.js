@@ -1,32 +1,36 @@
 // serve.js ~ Copyright 2015 Paul Beaudet ~ Licence Affero GPL ~ See LICENCE_AFFERO for details
+var queue = []; // array for queue of randos to be matched
 var when = {
     idle: true,
-    users: [],
     connected: function(socket){
-        var cookieCrums = socket.request.headers.cookie.split('=');   // split correct cookie out
-        var user = cookie.user(cookieCrums[cookieCrums.length - 1]);  // decrypt email from cookie, make it userID
-        if(user){
-            // console.log(user);
-            user = user.content.user;
-        }                            // check for existing cookie
-        else{return 0};                                               // this is a nameless (expired) socket!
-
-        if(user.name){                                                // given a valid user connected
-            console.log(user.name + ' connected id:' + socket.id);    // log connection event
-            sock.ets.to(socket.id).emit('youAre', user.name);         // make sure the socket knows who it is
-            when.match(socket.id); // connect this user with another or put them on the waiting list
+        var cookieCrums = socket.request.headers.cookie.split('='); // split correct cookie out
+        var user = cookie.user(cookieCrums[cookieCrums.length - 1]);// decrypt email from cookie, make it userID
+        if(user){ user = user.content.user; }                       // check for existing cookie
+        else{return 0};                                             // this is a nameless (expired) socket!
+        if(user.name){                                              // given a valid user connected
+            console.log(user.name + ' connected id:' + socket.id);  // log connection event
+            sock.ets.to(socket.id).emit('youAre', user.name);       // make sure the socket knows who it is
+            when.match(socket.id);                                  // connect randos or queue them
         }
         return user.name;
     },
-    match: function(socketID){
-        if(when.users.length){                                         // given there are other users waiting
-            var rando = Math.floor(Math.random() * when.users.length); // grab rando user to connect with
-            sock.ets.to(when.users[rando]).emit('start', socketID);    // get into a conversation with rando
-            sock.ets.to(socketID).emit('start', when.users[rando]);    // make sure this socket knows it
-            when.users.splice(rando, 1);                               // remove user from list
-        } else {                                                       // place on waiting list
-            when.users.push(socketID);                                 // if no users push to list
-        }
+    match: function(socketID, last){                  // note: last user can be undefined
+        if(queue.length === 1 && queue[0] !== last){  // one in que not last convo
+            when.start(socketID, queue[0]);           // start conversation
+        } else if (queue.length > 1){                 // match with user you were not with last
+            if(queue[0] === last){ when.start(socketID, queue[1]); } // basically if there are 2 queue one will match
+            else { when.start(socketID, queue[0]); }
+        } else { queue.push(socketID); }              // if no users push to list
+    },
+    start: function(incoming, queued){                // start a conversation between rando one and two
+        sock.ets.to(incoming).emit('start', queued);  // get into a conversation with rando
+        sock.ets.to(queued).emit('start', incoming);  // make sure this socket knows it
+        queue.splice(queue.indexOf(queued), 1);       // remove queued entry from queue
+    },
+    disconnect: function(socketID){
+        var index = queue.indexOf(socketID);          // get possible queued index of this socket
+        if(index > -1){queue.splice(index, 1);}       // remove queued entry from queue
+        console.log(socketID + ' disconnected');      // note disconnection
     }
 }
 
@@ -38,8 +42,8 @@ var sock = {
             if(!when.connected(socket)){return;}          // provide no services in the case of a failed connection
             socket.on('chat', function(rtt){sock.ets.to(rtt.to).emit('chat', rtt);});   // emit rtt to partner
             socket.on('interrupt', function(rtt){sock.ets.to(rtt.to).emit('interrupt', rtt);});
-            socket.on('end', function(){when.match(socket.id);});
-            socket.on('disconnect', function(){console.log(socket.id + ' disconnected');});
+            socket.on('end', function(partner){when.match(socket.id, partner);});
+            socket.on('disconnect', function(){when.disconnect(socket.id);});
         });
     },
 }
@@ -61,10 +65,8 @@ var mongo = { // depends on: mongoose
 var userAct = { // dep: mongo
     hash: require('bcryptjs'),                                // hash passwords with bcrypt
     auth: function(req, res){                                 // make sure user has a name
-        if(req.session.user && req.session.user.name){
-            console.log(req.session.user.name + ' joined')
-            res.render('chat');
-        } else {res.redirect('/signin');} // redirect to signin route if this user has yet self name
+        if(req.session.user && req.session.user.name){ res.render('chat'); }
+        else{ res.redirect('/signin'); } // redirect to signin route if this user has yet to name oneself
     },
     login: function(req, res){
         if(req.body.password && req.body.name){
@@ -88,7 +90,7 @@ var userAct = { // dep: mongo
                         } else {                                                     // user successfully saved, log em in
                             req.session.user = {name: req.body.name, type: 'free'};
                             res.redirect('/');
-                        }                                      
+                        }
                     });
                 }
             });

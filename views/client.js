@@ -53,11 +53,11 @@ var myTurn = {
         myTurn.idle++;                      // increment idle time (will only really increment w/inactivity)
         if(myTurn.isIt){                    // might this client talk?
             if($('.name:last').html() === send.to){myTurn.set(false);} // if someone all ready talk then no
-        }else{                              // not this users turn
+        } else {                            // not this users turn
             if(myTurn.elapsed > OPEN_HELM || myTurn.idle > PAUSE_TIMEOUT){myTurn.set(true);} // check for my turn
         }
         if(myTurn.idle > FULL_TIMEOUT || myTurn.elapsed > MAX_MONO){ // disconnect conditions
-            sock.et.emit('end');                                     // signal to server your are ready for a new partner
+            sock.et.emit('end', send.to);                            // signal ready for a new partner, w/ old partner
             convo.rm();                                              // clear out conversation history
             myTurn.set(false);                                       // block typing
             myTurn.idle = 0;                                         // reset idle to zero
@@ -69,7 +69,7 @@ var myTurn = {
 
 var send = {
     empty: true, // only way to know text was clear before typing i.e. client just stared typing
-    to: '',      // note other socket being messaged with
+    to: '',      // socket.id of partner being messaged with
     input: function(){
         if(myTurn.isIt){
             var rtt = {text: $('#textEntry').val(), to: send.to, from: sock.nick};
