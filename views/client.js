@@ -62,7 +62,8 @@ var myTurn = {
             myTurn.set(false);                                       // block typing
             myTurn.idle = 0;                                         // reset idle to zero
             send.clear();                                            // be sure text box is cleared when disconnecting
-            $('#topnav').fadeIn(1000);
+            $('#topnav').fadeIn(1000);                               // reshow nav bar
+            $('#waitMSG').css('display', 'block');                   // show wait message
         } else {myTurn.clock = setTimeout(myTurn.check, 1000);}      // set next timeout when still connected
     }
 }
@@ -111,7 +112,8 @@ var sock = {  // -- handle socket.io connection events
             send.to = partner;                     // recognize who you're talking to
             myTurn.set(true);                      // give the ability to talk
             myTurn.start();                        // signal begining of turn
-            $('#topnav').fadeOut(2000)
+            $('#topnav').fadeOut(2000);            // fade out navbar
+            $('#waitMSG').css('display', 'none');  // hide wait msg
         });
     }
 }
