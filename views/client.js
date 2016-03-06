@@ -16,7 +16,7 @@ var convo = {
         if(convo.items === NUM_ENTRIES){$('.message:first').remove();} // make room if entries full
         else{convo.items++;}                                         // count entries
         speed.realTime();                                            // start speedometer
-        var nameDiv = $('<span class="name"/>').text(rtt.from).addClass("pull-right text-success");
+        var nameDiv = $('<span class="user"/>').text(rtt.from).addClass("pull-right text-success");
         var textDiv = $('<span class="txt"/>').text(rtt.text);
         $('#history').append($('<div class="message"/>').append(textDiv, nameDiv));
     },
@@ -55,13 +55,12 @@ var myTurn = {
             if(myTurn.elapsed > OPEN_HELM || myTurn.idle > PAUSE_TIMEOUT){myTurn.set(true);} // check for my turn
         }
         if(myTurn.idle > FULL_TIMEOUT ){                        // disconnect conditions
-            sock.end();                                         // signal ready for a new partner, w/ old partner
+            sock.match();                                       // signal ready for a new partner, w/ old partner
             myTurn.wait();
         } else if(myTurn.elapsed > MAX_MONO){
-            if($('.name:last').html() !== sock.nick){           // if its not our turn
-                $('.chat.view').hide();
-                $('.mono.view').show();
-            } else { sock.end();}                               // case where client has idled for more than MAX_MONO or minute
+            console.log($('.user:last').html() + ' ' + sock.nick);
+            if($('.user:last').html() === sock.nick){sock.match();} // just talked for max time without response, new match
+            else { pages.toggle('.chat', '.mono');}                 // switch from chat to mono when user did too much listening / idling
             myTurn.wait();
         } else {myTurn.clock = setTimeout(myTurn.check, 1000);} // set next timeout when still connected
     },
@@ -94,7 +93,7 @@ var send = {
     clear: function(){
         $('#textEntry').val(''); // clear out text in entry bar
         send.empty = true;       // note that text is cleared out of entry bar
-    },
+    }
 }
 
 var speed = { // -- handles gathing speed information
@@ -104,16 +103,6 @@ var speed = { // -- handles gathing speed information
         if(chars){return (60000/((now-speed.start)/chars)/5).toFixed();} // return words per minute
         else { speed.start = now; }                                       // no param/chars starts the clock
     },
-}
-
-var pages = {                           // page based opporations
-    init: function(){                   // on click functions
-        $('#resume').click(function(){  // resume from an inactive state
-            sock.end();                 // signal ready for new match
-            $('.mono.view').hide();     // hide monologing warning view
-            $('.chat.view').show();     // reshow chat view
-        });
-    }
 }
 
 var sock = {  // -- handle socket.io connection events
@@ -133,13 +122,33 @@ var sock = {  // -- handle socket.io connection events
             $('#waitMSG').css('display', 'none');  // hide wait msg
         });
     },
-    end: function(){sock.et.emit('end', sock.to);} // signal ready for next match
+    match: function(){sock.et.emit('match', sock.to);} // signal ready for next match
 }
 
-$(document).ready(function(){                                  // when DOM is ready
-    myTurn.set(false);                                         // Block untill server gives a match
-    sock.et.on('youAre', sock.name);                           // wait for decrypted nickname
-    $('#textEntry').keydown(send.enter);                       // capture special key like enter
-    document.getElementById('textEntry').oninput = send.input; // listen for input event
-    pages.init();                                              // initalize page actions
-});
+var pages = {                               // page based opporations
+    init: function(){                       // on click functions
+        var active = $('#active').html();   // grab name of active user if there is one
+        if(active){                         // given there is an active user
+            sock.name(active);              // activate socket connection
+            myTurn.set(false);              // Block untill server gives a match
+            $('#textEntry').keydown(send.enter);                       // capture special key like enter
+            document.getElementById('textEntry').oninput = send.input; // listen for input event
+            $('.chat.view').show();         // reshow chat view
+            sock.match();                   // signal server match desired
+        } else {$('.name.view').show();}    // show sign in if no active user was passed by server
+        $('#resume').click(function(){      // resume from an inactive state
+            sock.match();                   // signal ready for new match
+            pages.toggle('.mono', '.chat'); // toggle mono to chat
+        });
+        $('#rename').click(function(){      // resume from an inactive state
+            sock.et.emit('pause');          // soft disconnect event
+            pages.toggle('.chat', '.name'); // toggle chat to name
+        });
+    },
+    toggle: function(hide, show){
+        $(hide + '.view').hide();       // hide view
+        $(show + '.view').show();       // show view
+    }
+}
+
+$(document).ready(pages.init); // fire up pages when DOM is ready

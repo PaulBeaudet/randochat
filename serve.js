@@ -1,19 +1,6 @@
 // serve.js ~ Copyright 2015 Paul Beaudet ~ Licence Affero GPL ~ See LICENCE_AFFERO for details
 var queue = []; // array for queue of randos to be matched
 var when = {
-    idle: true,
-    connected: function(socket){
-        var cookieCrums = socket.request.headers.cookie.split('='); // split correct cookie out
-        var user = cookie.user(cookieCrums[cookieCrums.length - 1]);// decrypt email from cookie, make it userID
-        if(user){ user = user.content.user; }                       // check for existing cookie
-        else{return 0};                                             // this is a nameless (expired) socket!
-        if(user.name){                                              // given a valid user connected
-            console.log(user.name + ' connected id:' + socket.id);  // log connection event
-            sock.ets.to(socket.id).emit('youAre', user.name);       // make sure the socket knows who it is
-            when.match(socket.id);                                  // connect randos or queue them
-        }
-        return user.name;
-    },
     match: function(socketID, last){                  // note: last user can be undefined
         if(queue.length === 1 && queue[0] !== last){  // one in que not last convo
             when.start(socketID, queue[0]);           // start conversation
@@ -30,7 +17,6 @@ var when = {
     disconnect: function(socketID){
         var index = queue.indexOf(socketID);          // get possible queued index of this socket
         if(index > -1){queue.splice(index, 1);}       // remove queued entry from queue
-        console.log(socketID + ' disconnected');      // note disconnection
     }
 }
 
@@ -39,11 +25,11 @@ var sock = {
     listen: function(server){
         sock.ets = sock.ets(server);
         sock.ets.on('connection', function(socket){
-            if(!when.connected(socket)){return;}          // provide no services in the case of a failed connection
             socket.on('chat', function(rtt){sock.ets.to(rtt.to).emit('chat', rtt);});   // emit rtt to partner
             socket.on('interrupt', function(rtt){sock.ets.to(rtt.to).emit('interrupt', rtt);});
-            socket.on('end', function(partner){when.match(socket.id, partner);});
+            socket.on('match', function(partner){when.match(socket.id, partner);});
             socket.on('disconnect', function(){when.disconnect(socket.id);});
+            socket.on('pause', function(){when.disconnect(socket.id);});
         });
     },
 }
@@ -63,20 +49,20 @@ var mongo = { // depends on: mongoose
 }
 
 var userAct = { // dep: mongo
-    hash: require('bcryptjs'),                                // hash passwords with bcrypt
-    auth: function(req, res){                                 // make sure user has a name
-        if(req.session.user && req.session.user.name){ res.render('chat'); }
-        else{ res.redirect('/signin'); } // redirect to signin route if this user has yet to name oneself
+    hash: require('bcryptjs'), // hash passwords with bcrypt
+    auth: function(req, res){  // make sure user has a name
+        var existingUser = req.session.user ? req.session.user.name : false;    // if (?) active session : pass false if new session
+        res.render('chat', {csrfToken: req.csrfToken(), active: existingUser}); // pass csrf and username
     },
     login: function(req, res){
-        if(req.body.password && req.body.name){
+        if(req.body.password && req.body.name){                                      // if name & password were posted
             mongo.user.findOne({name: req.body.name}, function(err, rando){          // find a rando in our db
                 if(rando){                                                           // say one of our little randos exist
                     if(userAct.hash.compareSync(req.body.password, rando.password)){ // check if their password is right
                         req.session.user = {name: req.body.name, type: 'free'};
-                        res.redirect('/');
+                        res.render('chat', {csrfToken: req.csrfToken(), active: req.body.name});
                     } else {                                                         // if password is wrong case
-                        res.render('name', {csrfToken: req.csrfToken, err: true});   // re-render name page
+                        res.render('chat', {csrfToken: req.csrfToken(), active: false, err: true});    // re-render name page
                     }
                 } else {                                                             // given no user make one
                     var user = new mongo.user({                                      // create user document
@@ -84,32 +70,30 @@ var userAct = { // dep: mongo
                         password: userAct.hash.hashSync(req.body.password, userAct.hash.genSaltSync(10)), // hash rando's password
                         type: 'free'                                                 // what type of account is this?
                     });
-                    user.save(function(err){
-                        if(err){
-                            res.render('name', {csrfToken: req.csrfToken, err: err});// user failed to save
+                    user.save(function(err){                                         // request to save this user
+                        if(err){                                                     // if error on user save
+                            res.render('chat', {csrfToken: req.csrfToken(), active: false, err: err}); // render inactive page with error
                         } else {                                                     // user successfully saved, log em in
-                            req.session.user = {name: req.body.name, type: 'free'};
-                            res.redirect('/');
+                            req.session.user = {name: req.body.name, type: 'free'};  // save session cookie
+                            res.render('chat', {csrfToken: req.csrfToken(), active: req.body.name});   // render page w/name
                         }
                     });
                 }
             });
-        } else if(req.body.name){ // no password but we have a name condition
-            req.session.user = {name: req.body.name, type: 'temp'};
-            res.redirect('/');
-        }
-        else {res.redirect('/signin');}                    // maybe re-render with an error message
+        } else if(req.body.name){                                                    // if only name was posted
+            req.session.user = {name: req.body.name, type: 'temp'};                  // create temp user
+            res.render('chat', {csrfToken: req.csrfToken(), active: req.body.name}); // render chat view w/name
+        } else {res.render('chat', {csrfToken: req.csrfToken(), active: false, err: 'no info?'});} //
     },
     room: function(req, res){ // check if this is a legit room else redirect to randochat
         mongo.user.findOne({name: req.params.username}, function(err, rando){
             if(rando){
                 userAct.auth(req, res);
             } else {
-                res.send('not legit!');
+                res.send('who is '+ req.params.username + '?');
             }
         });
     },
-    renderSignin: function(req, res){res.render('name', {csrfToken: req.csrfToken()});},
 }
 
 var cookie = { // depends on client-sessions and mongo
@@ -139,8 +123,8 @@ var serve = {
         app.use(serve.express.static(__dirname + '/views')); // serve page dependancies (sockets, jquery, bootstrap)
         var router = serve.express.Router();                 // create express router object to add routing events to
         router.get('/', userAct.auth);                       // main route for getting into a randochat if you have a name
-        router.get('/signin', userAct.renderSignin);         // where one goes to get a name
-        router.post('/signin', userAct.login);               // how one create their name
+        //router.get('/signin', userAct.renderSignin);         // where one goes to get a name
+        router.post('/', userAct.login);                     // how one creates their name
         router.get('/:username', userAct.room);              // personal rooms for special users
         app.use(router);                                     // get express to user the routes we set
         sock.listen(http);                                   // listen for socket connections

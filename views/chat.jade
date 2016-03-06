@@ -2,16 +2,35 @@
 extends ./header.jade
 
 block content
-    ul
-        li.view.chat
-            #waitMSG.row.text-center.text-success Searching for matches...
-            #history
-            h1#wpm.row.text-center.text-success
-            include textInput.jade
-        li.view.mono
-            h3.row.text-center No lectures here, feel free to butt in!
-            .row.text-center
-                button#resume.btn.btn-success back to chatting
+    include navbar.jade
+    .container
+        ul
+            li.view.chat
+                #waitMSG.row.text-center.text-success Searching for matches...
+                #history
+                h1#wpm.row.text-center.text-success
+                include textInput.jade
+            li.view.mono
+                h3.row.text-center No lectures here, feel free to butt in!
+                .row.text-center
+                    button#resume.btn.btn-success back to chatting
+            li.view.name
+                #signup.jumbotron
+                    h1 What is your NAME?*
+                    form(method='post')
+                        input(type='hidden', name="_csrf", value=csrfToken)
+                        .form-group
+                            label(for='usr') NAME, (only requirment to continue)
+                            input.form-control(type='text', name='name', required='ture')
+                        .form-group
+                            label(for='signupPassword')  Password (optional, with account)
+                            input.form-control(type='password', name='password')
+                        if err
+                            p Taken name or wrong password, TO THE ABYSS! WOOSH! error= #{err}
+                        input#submit.btn.btn-lg.btn-success(type='submit', value='Ready to chat!')
+                i *subject to ask for favorite color and quest at later date
     // Javescript dependencies
-    include dependencies.jade
+    script(src='bower_components/jquery/dist/jquery.min.js')
+    script(src='bower_components/socket.io-1.4.5/index.js')
+    script(src='bower_components/bootstrap/dist/js/bootstrap.min.js')
     script(type='text/javascript', src='client.js')
