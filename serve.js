@@ -123,7 +123,6 @@ var serve = {
         app.use(serve.express.static(__dirname + '/views')); // serve page dependancies (sockets, jquery, bootstrap)
         var router = serve.express.Router();                 // create express router object to add routing events to
         router.get('/', userAct.auth);                       // main route for getting into a randochat if you have a name
-        //router.get('/signin', userAct.renderSignin);         // where one goes to get a name
         router.post('/', userAct.login);                     // how one creates their name
         router.get('/:username', userAct.room);              // personal rooms for special users
         app.use(router);                                     // get express to user the routes we set

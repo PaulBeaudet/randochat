@@ -16,9 +16,9 @@ var convo = {
         if(convo.items === NUM_ENTRIES){$('.message:first').remove();} // make room if entries full
         else{convo.items++;}                                         // count entries
         speed.realTime();                                            // start speedometer
-        var nameDiv = $('<span class="user"/>').text(rtt.from).addClass("pull-right text-success");
-        var textDiv = $('<span class="txt"/>').text(rtt.text);
-        $('#history').append($('<div class="message"/>').append(textDiv, nameDiv));
+        var nameDiv = $('<span class="user col-xs-3 pull-right text-success"/>').text(rtt.from);
+        var textDiv = $('<span class="txt col-xs-9"/>').text(rtt.text);
+        $('#history').append($('<div class="row message"/>').append( textDiv, nameDiv));
     },
     rm: function(){
         $('.message').remove(); // remove all messages
