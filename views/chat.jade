@@ -2,15 +2,16 @@
 extends ./header.jade
 
 block content
-    // chat/topic rows
-    #waitMSG.row.text-center.text-success Searching for matches...
-    #history
-    // WPM Ticker
-    .row
-        .col-xs-12.text-center
-            h1#wpm.text-center.text-success
-    // chatbar on bottom of page
-    include textInput.jade
+    ul
+        li.view.chat
+            #waitMSG.row.text-center.text-success Searching for matches...
+            #history
+            h1#wpm.row.text-center.text-success
+            include textInput.jade
+        li.view.mono
+            h3.row.text-center No lectures here, feel free to butt in!
+            .row.text-center
+                button#resume.btn.btn-success back to chatting
     // Javescript dependencies
     include dependencies.jade
     script(type='text/javascript', src='client.js')

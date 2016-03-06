@@ -1,3 +1,12 @@
 .message {
   font-size: 100%;
 }
+
+ul {
+  list-style: none;
+  word-wrap: break-word;
+}
+
+.view.mono {
+    display: none;
+}

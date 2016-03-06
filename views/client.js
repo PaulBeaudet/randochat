@@ -51,29 +51,35 @@ var myTurn = {
     check: function(){
         myTurn.elapsed++;                   // increment elapsed time
         myTurn.idle++;                      // increment idle time (will only really increment w/inactivity)
-        if(myTurn.isIt){                    // might this client talk?
-            if($('.name:last').html() === send.to){myTurn.set(false);} // if someone all ready talk then no
-        } else {                            // not this users turn
+        if(!myTurn.isIt){                   // not this users turn, might this client talk?
             if(myTurn.elapsed > OPEN_HELM || myTurn.idle > PAUSE_TIMEOUT){myTurn.set(true);} // check for my turn
         }
-        if(myTurn.idle > FULL_TIMEOUT || myTurn.elapsed > MAX_MONO){ // disconnect conditions
-            sock.et.emit('end', send.to);                            // signal ready for a new partner, w/ old partner
-            convo.rm();                                              // clear out conversation history
-            myTurn.set(false);                                       // block typing
-            myTurn.idle = 0;                                         // reset idle to zero
-            send.clear();                                            // be sure text box is cleared when disconnecting
-            $('#topnav').fadeIn(1000);                               // reshow nav bar
-            $('#waitMSG').css('display', 'block');                   // show wait message
-        } else {myTurn.clock = setTimeout(myTurn.check, 1000);}      // set next timeout when still connected
+        if(myTurn.idle > FULL_TIMEOUT ){                        // disconnect conditions
+            sock.end();                                         // signal ready for a new partner, w/ old partner
+            myTurn.wait();
+        } else if(myTurn.elapsed > MAX_MONO){
+            if($('.name:last').html() !== sock.nick){           // if its not our turn
+                $('.chat.view').hide();
+                $('.mono.view').show();
+            } else { sock.end();}                               // case where client has idled for more than MAX_MONO or minute
+            myTurn.wait();
+        } else {myTurn.clock = setTimeout(myTurn.check, 1000);} // set next timeout when still connected
+    },
+    wait: function(){
+        convo.rm();                                             // clear out conversation history
+        myTurn.set(false);                                      // block typing
+        myTurn.idle = 0;                                        // reset idle to zero
+        send.clear();                                           // be sure text box is cleared when disconnecting
+        $('#topnav').fadeIn(1000);                              // reshow nav bar
+        $('#waitMSG').css('display', 'block');                  // show wait message
     }
 }
 
 var send = {
     empty: true, // only way to know text was clear before typing i.e. client just stared typing
-    to: '',      // socket.id of partner being messaged with
     input: function(){
         if(myTurn.isIt){
-            var rtt = {text: $('#textEntry').val(), to: send.to, from: sock.nick};
+            var rtt = {text: $('#textEntry').val(), to: sock.to, from: sock.nick};
             if(send.empty){
                 send.empty = false;
                 sock.et.emit('interrupt', rtt);
@@ -100,8 +106,19 @@ var speed = { // -- handles gathing speed information
     },
 }
 
+var pages = {                           // page based opporations
+    init: function(){                   // on click functions
+        $('#resume').click(function(){  // resume from an inactive state
+            sock.end();                 // signal ready for new match
+            $('.mono.view').hide();     // hide monologing warning view
+            $('.chat.view').show();     // reshow chat view
+        });
+    }
+}
+
 var sock = {  // -- handle socket.io connection events
     et: io(), // start socket.io listener
+    to: '',   // socketid of our partner
     nick: '', // name of this client
     name: function(nickName){                      // allow chat and go when we have a name
         sock.nick = nickName;                      // learn ones own name
@@ -109,13 +126,14 @@ var sock = {  // -- handle socket.io connection events
         sock.et.on('interrupt', myTurn.interrupt); // recieves new chat partners or interuptions from partner
         sock.et.on('connect_error', function(){window.location.replace('/');}); // reload on connection error
         sock.et.on('start', function(partner){
-            send.to = partner;                     // recognize who you're talking to
+            sock.to = partner;                     // recognize who you're talking to
             myTurn.set(true);                      // give the ability to talk
             myTurn.start();                        // signal begining of turn
             $('#topnav').fadeOut(2000);            // fade out navbar
             $('#waitMSG').css('display', 'none');  // hide wait msg
         });
-    }
+    },
+    end: function(){sock.et.emit('end', sock.to);} // signal ready for next match
 }
 
 $(document).ready(function(){                                  // when DOM is ready
@@ -123,4 +141,5 @@ $(document).ready(function(){                                  // when DOM is re
     sock.et.on('youAre', sock.name);                           // wait for decrypted nickname
     $('#textEntry').keydown(send.enter);                       // capture special key like enter
     document.getElementById('textEntry').oninput = send.input; // listen for input event
+    pages.init();                                              // initalize page actions
 });
