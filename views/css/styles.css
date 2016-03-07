@@ -1,5 +1,6 @@
 .message {
     font-size: 110%;
+    border-bottom: 1px solid #ccc
 }
 
 ul {
@@ -10,4 +11,8 @@ ul {
 /* all views defualt to none*/
 .view {
     display: none;
+}
+
+.wait {
+    background-color: #3c3c3c;
 }

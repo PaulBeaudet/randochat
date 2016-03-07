@@ -39,8 +39,14 @@ var myTurn = {
         convo.next(rtt);     // display what our partner said
     },
     set: function(status){
-        myTurn.isIt = status;                                 // set status of whos turn it is
-        $('#sendText').html(myTurn.isIt ? 'Type!' : 'Wait!'); // send text reflects ability wether it be true or false
+        myTurn.isIt = status;                    // set status of whos turn it is
+        if(myTurn.isIt){                         // if its this clients turn
+            $('#textEntry').removeClass('wait'); // remove color on input box
+            $('#sendText').html('Type!');        // tell client they should type
+        } else {                                 // not clients turn
+            $('#sendText').html('Wait!');        // tell client to wait
+            $('#textEntry').addClass('wait');    // bar out text box
+        }
     },
     start: function(){ // first turn
         myTurn.elapsed = 0;
