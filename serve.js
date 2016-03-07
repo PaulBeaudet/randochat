@@ -86,11 +86,12 @@ var userAct = { // dep: mongo
         } else {res.render('chat', {csrfToken: req.csrfToken(), active: false, err: 'no info?'});} //
     },
     room: function(req, res){ // check if this is a legit room else redirect to randochat
-        mongo.user.findOne({name: req.params.username}, function(err, rando){
-            if(rando){
-                userAct.auth(req, res);
+        mongo.user.findOne({name: req.params.room}, function(err, room){
+            if(room){
+                var existingUser = req.session.user ? req.session.user.name : false;    // if (?) active session : pass false if new session
+                res.render('chat', {csrfToken: req.csrfToken(), active: existingUser, room: req.params.room}); // pass csrf and username
             } else {
-                res.send('who is '+ req.params.username + '?');
+                res.send(req.params.room + ' does not exist');
             }
         });
     },
@@ -124,7 +125,8 @@ var serve = {
         var router = serve.express.Router();                 // create express router object to add routing events to
         router.get('/', userAct.auth);                       // main route for getting into a randochat if you have a name
         router.post('/', userAct.login);                     // how one creates their name
-        router.get('/:username', userAct.room);              // personal rooms for special users
+        router.get('/:room', userAct.room);                  // personal rooms for special users
+        router.post('/:room', userAct.login);                // how one creates their name
         app.use(router);                                     // get express to user the routes we set
         sock.listen(http);                                   // listen for socket connections
         http.listen(process.env.PORT);                       // listen on specified PORT enviornment variable

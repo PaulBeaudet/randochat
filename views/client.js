@@ -142,6 +142,10 @@ var pages = {                               // page based opporations
             $('.chat.view').show();         // reshow chat view
             sock.match();                   // signal server match desired
         } else {$('.name.view').show();}    // show sign in if no active user was passed by server
+        var room = $('#room').html();       // get potential room name
+        if(room){
+            $('#app').addClass('bg-info');
+        }
         $('#resume').click(function(){      // resume from an inactive state
             sock.match();                   // signal ready for new match
             pages.toggle('.mono', '.chat'); // toggle mono to chat

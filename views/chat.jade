@@ -2,8 +2,25 @@
 extends ./header.jade
 
 block content
-    include navbar.jade
-    .container
+    #topnav.navbar.navbar-inverse.navbar-static-top
+        .container
+            .navbar-header
+                button.navbar-toggle(type= "button", data-toggle= "collapse", data-target= ".navbar-collapse")
+                    span.icon-bar
+                    span.icon-bar
+                    span.icon-bar
+                span#room(style='display: none;') #{room}
+                - var path = '/'
+                if room
+                    - path = path + room
+                a.navbar-brand(href=path) randochat#{path}
+            .navbar-collapse.collapse
+                ul.nav.navbar-nav.navbar-right
+                    li
+                        a#active #{active}
+                    li
+                        a#rename Rename
+    .container#allViews
         ul
             li.view.chat
                 #waitMSG.row.text-center.text-success Searching for matches...
