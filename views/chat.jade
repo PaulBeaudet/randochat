@@ -11,13 +11,15 @@ block content
                 - var path = '/'
                 if room
                     - path = path + room
-                a.navbar-brand(href=path) randochat#{path}
+                a.navbar-brand#brand(href=path) randochat#{path}
             .navbar-collapse.collapse
                 ul.nav.navbar-nav.navbar-right
                     li
                         a#active #{active}
                     li
-                        a#rename Rename
+                        a#account #{account}
+                    li
+                        a#rename rename
     .container#allViews
         ul
             li.view.chat

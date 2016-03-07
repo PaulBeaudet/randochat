@@ -134,18 +134,23 @@ var sock = {  // -- handle socket.io connection events
 var pages = {                               // page based opporations
     init: function(){                       // on click functions
         var active = $('#active').html();   // grab name of active user if there is one
+        var room = $('#room').html();       // get potential room name being visited
+
         if(active){                         // given there is an active user
+            var account = $('#account').html(); // figure clients account type
+            if(account === 'free'){
+                $('#brand').html('randochat/' + active);
+                room = active;
+            }
             sock.name(active);              // activate socket connection
             myTurn.set(false);              // Block untill server gives a match
-            $('#textEntry').keydown(send.enter);                       // capture special key like enter
             document.getElementById('textEntry').oninput = send.input; // listen for input event
             $('.chat.view').show();         // reshow chat view
             sock.match();                   // signal server match desired
         } else {$('.name.view').show();}    // show sign in if no active user was passed by server
-        var room = $('#room').html();       // get potential room name
-        if(room){
-            $('#app').addClass('bg-info');
-        }
+
+        if(room){$('#app').addClass('bg-info');}
+
         $('#resume').click(function(){      // resume from an inactive state
             sock.match();                   // signal ready for new match
             pages.toggle('.mono', '.chat'); // toggle mono to chat

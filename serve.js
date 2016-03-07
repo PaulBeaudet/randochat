@@ -52,7 +52,7 @@ var userAct = { // dep: mongo
     hash: require('bcryptjs'), // hash passwords with bcrypt
     auth: function(req, res){  // make sure user has a name
         var existingUser = req.session.user ? req.session.user.name : false;    // if (?) active session : pass false if new session
-        res.render('chat', {csrfToken: req.csrfToken(), active: existingUser}); // pass csrf and username
+        res.render('chat', {csrfToken: req.csrfToken(), active: existingUser, account: req.session.user.type}); // pass csrf and username
     },
     login: function(req, res){
         if(req.body.password && req.body.name){                                      // if name & password were posted
@@ -60,7 +60,12 @@ var userAct = { // dep: mongo
                 if(rando){                                                           // say one of our little randos exist
                     if(userAct.hash.compareSync(req.body.password, rando.password)){ // check if their password is right
                         req.session.user = {name: req.body.name, type: 'free'};
-                        res.render('chat', {csrfToken: req.csrfToken(), active: req.body.name});
+                        res.render('chat', {
+                            csrfToken: req.csrfToken(),
+                            active: req.body.name,
+                            room: req.body.name,
+                            account: 'free',
+                        });
                     } else {                                                         // if password is wrong case
                         res.render('chat', {csrfToken: req.csrfToken(), active: false, err: true});    // re-render name page
                     }
@@ -75,21 +80,26 @@ var userAct = { // dep: mongo
                             res.render('chat', {csrfToken: req.csrfToken(), active: false, err: err}); // render inactive page with error
                         } else {                                                     // user successfully saved, log em in
                             req.session.user = {name: req.body.name, type: 'free'};  // save session cookie
-                            res.render('chat', {csrfToken: req.csrfToken(), active: req.body.name});   // render page w/name
+                            res.render('chat', {csrfToken: req.csrfToken(), active: req.body.name, account: 'free'});   // render page w/name
                         }
                     });
                 }
             });
-        } else if(req.body.name){                                                    // if only name was posted
-            req.session.user = {name: req.body.name, type: 'temp'};                  // create temp user
-            res.render('chat', {csrfToken: req.csrfToken(), active: req.body.name}); // render chat view w/name
-        } else {res.render('chat', {csrfToken: req.csrfToken(), active: false, err: 'no info?'});} //
+        } else if(req.body.name){                                                                     // if only name was posted
+            req.session.user = {name: req.body.name, type: 'temp'};                                   // create temp user
+            res.render('chat', {csrfToken: req.csrfToken(), active: req.body.name, account: 'temp'}); // render chat view w/name
+        } else {res.render('chat', {csrfToken: req.csrfToken(), active: false, err: 'no info?'});}    //
     },
     room: function(req, res){ // check if this is a legit room else redirect to randochat
         mongo.user.findOne({name: req.params.room}, function(err, room){
             if(room){
                 var existingUser = req.session.user ? req.session.user.name : false;    // if (?) active session : pass false if new session
-                res.render('chat', {csrfToken: req.csrfToken(), active: existingUser, room: req.params.room}); // pass csrf and username
+                res.render('chat', {
+                    csrfToken: req.csrfToken(),
+                    active: existingUser,
+                    room: req.params.room,
+                    account: req.session.user.type,
+                }); // pass csrf and username
             } else {
                 res.send(req.params.room + ' does not exist');
             }
