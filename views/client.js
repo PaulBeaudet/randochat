@@ -39,13 +39,13 @@ var myTurn = {
         convo.next(rtt);     // display what our partner said
     },
     set: function(status){
-        myTurn.isIt = status;                    // set status of whos turn it is
-        if(myTurn.isIt){                         // if its this clients turn
-            $('#textEntry').removeClass('wait'); // remove color on input box
-            $('#sendText').html('Type!');        // tell client they should type
-        } else {                                 // not clients turn
-            $('#sendText').html('Wait!');        // tell client to wait
-            $('#textEntry').addClass('wait');    // bar out text box
+        myTurn.isIt = status;                                        // set status of whos turn it is
+        if(myTurn.isIt){                                             // if its this clients turn
+            $('#textEntry').removeClass('wait');                     // remove color on input box
+            $('#sendText').html('Type ').removeClass('text-danger'); // tell client they should type remove color
+        } else {                                                     // not clients turn
+            $('#sendText').html('Wait ').addClass('text-danger');    // tell client to wait add color
+            $('#textEntry').addClass('wait');                        // bar out text box
         }
     },
     start: function(){ // first turn
@@ -154,6 +154,7 @@ var pages = {                               // page based opporations
             sock.et.emit('pause');          // soft disconnect event
             pages.toggle('.chat', '.name'); // toggle chat to name
         });
+        $('#sendButton').click(function(){$('#topnav').fadeToggle(500);});
     },
     toggle: function(hide, show){
         $(hide + '.view').hide();       // hide view

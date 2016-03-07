@@ -5,11 +5,9 @@ block content
     #topnav.navbar.navbar-inverse.navbar-static-top
         .container
             .navbar-header
-                button.navbar-toggle(type= "button", data-toggle= "collapse", data-target= ".navbar-collapse")
-                    span.icon-bar
-                    span.icon-bar
-                    span.icon-bar
-                span#room(style='display: none;') #{room}
+                button.navbar-toggle.text-info(type= "button", data-toggle= "collapse", data-target= ".navbar-collapse")
+                    span.glyphicon.glyphicon-menu-hamburger
+                span#room.hidden #{room}
                 - var path = '/'
                 if room
                     - path = path + room
