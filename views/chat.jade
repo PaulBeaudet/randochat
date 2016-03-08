@@ -24,13 +24,12 @@ block content
         ul
             li.view.chat
                 if room
-                    #waitMSG.row.text-center.text-success.hidden Searching for matches...
                     if status
                         #status.row.text-center.text-success 1 user(s) waiting for #{room}
                     else
                         #status.row.text-center.text-danger 0 #{room} is offline right now
                 else
-                    #waitMSG.row.text-center.text-success Searching for matches...
+                    #status.row.text-center.text-success Searching for matches...
                 #history
                 h1#wpm.row.text-center.text-success
                 include textInput.jade

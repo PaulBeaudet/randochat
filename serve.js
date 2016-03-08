@@ -33,8 +33,11 @@ var sock = {
     listen: function(server){
         sock.ets = sock.ets(server);
         sock.ets.on('connection', function(socket){
-            socket.on('newRoom', function(name){when.newRoom(socket.id, name);});                    // create active room
-            socket.on('knock', function(onDoor){sock.ets.to(onDoor.to).emit('knock', onDoor.from);});// notify room entry
+            socket.on('newRoom', function(name){when.newRoom(socket.id, name);});                      // create active room
+            socket.on('knock', function(knock){
+                sock.ets.to(knock.to).emit('knock', {name: knock.from, id: socket.id}); // notify room entry
+            });
+            socket.on('status', function(status){sock.ets.to(status.to).emit('status', status.ready);}); // notify if availible
             socket.on('chat', function(rtt){sock.ets.to(rtt.to).emit('chat', rtt);});   // emit real time chat to partner
             socket.on('interrupt', function(rtt){sock.ets.to(rtt.to).emit('interrupt', rtt);});
             socket.on('match', function(last){when.match(socket.id, last);});
@@ -103,18 +106,18 @@ var userAct = { // dep: mongo
     room: function(req, res){ // check if this is a legit room else redirect to randochat
         mongo.user.findOne({name: req.params.room}, function(err, room){
             if(room){
-                var status = false; // Availabilty of room pervayer, false if pervayer makes request
+                var present = false; // Availabilty of room pervayer, false if pervayer makes request
                 var existingUser = req.session.user ? req.session.user.name : false;    // if (?) active session : pass false if new session
                 if(existingUser !== room.name){ // if this is a user other than the room pervayer
                     var openRM = rooms.map(function(each){return each.room;}).indexOf(room.name); // check if this room is active
-                    if(openRM > -1){status = rooms[openRM].socket;} // give id to ping pervayer when this user gets id
+                    if(openRM > -1){present = rooms[openRM].socket;} // give id to ping pervayer when this user gets id
                 }
                 res.render('chat', {
                     csrfToken: req.csrfToken(),
                     active: existingUser,
                     room: req.params.room,
                     account: req.session.user.type,
-                    status: status,
+                    present: present,
                 }); // pass csrf and username
             } else {
                 res.send(req.params.room + ' does not exist');

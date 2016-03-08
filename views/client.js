@@ -76,7 +76,7 @@ var myTurn = {
         myTurn.idle = 0;                                        // reset idle to zero
         send.clear();                                           // be sure text box is cleared when disconnecting
         $('#topnav').fadeIn(1000);                              // reshow nav bar
-        $('#waitMSG').css('display', 'block');                  // show wait message
+        $('#status').css('display', 'block').html('waiting for matches...');  // show wait message
     }
 }
 
@@ -115,42 +115,72 @@ var sock = {  // -- handle socket.io connection events
     et: io(), // start socket.io listener
     to: '',   // socketid of our partner
     nick: '', // name of this client
+    host: '', // socket id of availible room host
     name: function(nickName){                      // allow chat and go when we have a name
         sock.nick = nickName;                      // learn ones own name
         sock.et.on('chat', convo.chat);            // recieves real time chat information
         sock.et.on('interrupt', myTurn.interrupt); // recieves new chat partners or interuptions from partner
         sock.et.on('connect_error', function(){window.location.replace('/');}); // reload on connection error
-        sock.et.on('start', function(partner){
-            sock.to = partner;                     // recognize who you're talking to
-            myTurn.set(true);                      // give the ability to talk
-            myTurn.start();                        // signal begining of turn
-            $('#topnav').fadeOut(2000);            // fade out navbar
-            $('#waitMSG').css('display', 'none');  // hide wait msg
+        sock.et.on('start', sock.start);           // kick off conversation between two people
+    },
+    start: function(partner){
+        sock.to = partner;                     // get SOCKETID of who you're talking to
+        myTurn.set(true);                      // give the ability to talk
+        myTurn.start();                        // signal begining of turn
+        $('#topnav').fadeOut(2000);            // fade out navbar
+        $('#status').css('display', 'none');   // hide wait msg
+    },
+    entry: function(){ // on entering a room
+        sock.host = $('#present').html();
+        if(sock.host){ sock.et.emit('knock', {to: sock.host, from: sock.nick});} // knock knock! Are you availible?
+        sock.et.on('status', function(ready){
+            if(ready){                            // is host replied with their id they are availible
+                sock.start($('#present').html()); // connect w/host they already connect w/you
+            } else {                              // status unavailible
+                $('#status').html($('#room').html() + ' is talking to someone right now');// notify host is talking with someone
+            }
+        });
+        sock.et.on('newRoom', function(name){
+            console.log(name + 's room is open'); // prompt to knock again
         });
     },
-    match: function(){sock.et.emit('match', sock.to);} // signal ready for next match
+    openRM: function(){ // on hosting a room
+        sock.et.on('knock', function(from){
+            if(sock.to){                                             // if talking to someone
+                sock.et.emit('status', {to: from.id, ready: false}); // note host is occupied
+                console.log(from.name + ' wants to talk');           // tell host who knocked
+            } else {                                                 // if not talking
+                sock.et.emit('status', {to: from.id, ready: true});  // all signals go
+                sock.start(from.id);                                 // start a conversation w/knocker
+            }
+        });
+    },
+    match: function(){
+        sock.et.emit('match', sock.to); // signal ready for next match
+        sock.to = '';                   // remove old match to show availability
+    }
 }
 
 var pages = {                               // page based opporations
     init: function(){                       // on click functions
         var active = $('#active').html();   // grab name of active user if there is one
-        var room = $('#room').html();       // get potential room name being visited
-
         if(active){                         // given this is an active user
+            $('.chat.view').show();         // show chat view
             sock.name(active);              // activate socket connection
             myTurn.set(false);              // Block untill server gives a match
             document.getElementById('textEntry').oninput = send.input; // listen for input event
-            $('.chat.view').show();                      // reshow chat view
             var account = $('#account').html();          // figure clients account type
-            if(account === 'free' && !room){             // if this user has their own acount and is visiting slash
-                $('#brand').html('randochat/' + active); // Set default as their room
-                room = active;                           // make sure room is something so bg will reflect status
-                sock.et.emit('newRoom', active);         // show that this room is now active
+            var room = $('#room').html();                // get potential room name being visited
+            if(room){ sock.entry(); }                    // entering someone room case
+            else {
+                if(account === 'free'){                      // case that host has returned
+                    $('#app').addClass('bg-info');           // set a particular color for room host
+                    $('#brand').html('randochat/' + active); // Set default as their room
+                    sock.et.emit('newRoom', active);         // show that this room is now active (match people to this user)
+                    sock.openRM();                           // listen for knock events
+                } else { sock.match(); }                     // else use random matching
             }
-            sock.match();                   // signal server match desired
-        } else {$('.name.view').show();}    // show sign in if no active user was passed by server
-
-        if(room){$('#app').addClass('bg-info');}
+        } else { $('.name.view').show(); }  // No active session? must sign in. NOTE: page reload on post request
 
         $('#resume').click(function(){      // resume from an inactive state
             sock.match();                   // signal ready for new match
