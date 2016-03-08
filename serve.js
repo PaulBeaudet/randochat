@@ -1,5 +1,7 @@
 // serve.js ~ Copyright 2015 Paul Beaudet ~ Licence Affero GPL ~ See LICENCE_AFFERO for details
 var queue = []; // array for queue of randos to be matched
+var rooms = []; // array of active rooms
+
 var when = {
     match: function(socketID, last){                  // note: last user can be undefined
         if(queue.length === 1 && queue[0] !== last){  // one in que not last convo
@@ -17,6 +19,12 @@ var when = {
     disconnect: function(socketID){
         var index = queue.indexOf(socketID);          // get possible queued index of this socket
         if(index > -1){queue.splice(index, 1);}       // remove queued entry from queue
+        var openRM = rooms.map(function(each){return each.socket;}).indexOf(socketID); // check if this room is active
+        if(openRM > -1){rooms.splice(openRM, 1);}     // remove room if its pervayer is leaving
+    },
+    newRoom: function(socketID, name){
+        rooms.push({socket: socketID, room: name}); // push room
+        sock.ets.emit('newRoom', name);             // socket emit to all availablity, in case folks are at your door
     }
 }
 
@@ -25,9 +33,11 @@ var sock = {
     listen: function(server){
         sock.ets = sock.ets(server);
         sock.ets.on('connection', function(socket){
-            socket.on('chat', function(rtt){sock.ets.to(rtt.to).emit('chat', rtt);});   // emit rtt to partner
+            socket.on('newRoom', function(name){when.newRoom(socket.id, name);});                    // create active room
+            socket.on('knock', function(onDoor){sock.ets.to(onDoor.to).emit('knock', onDoor.from);});// notify room entry
+            socket.on('chat', function(rtt){sock.ets.to(rtt.to).emit('chat', rtt);});   // emit real time chat to partner
             socket.on('interrupt', function(rtt){sock.ets.to(rtt.to).emit('interrupt', rtt);});
-            socket.on('match', function(partner){when.match(socket.id, partner);});
+            socket.on('match', function(last){when.match(socket.id, last);});
             socket.on('disconnect', function(){when.disconnect(socket.id);});
             socket.on('pause', function(){when.disconnect(socket.id);});
         });
@@ -88,17 +98,23 @@ var userAct = { // dep: mongo
         } else if(req.body.name){                                                                     // if only name was posted
             req.session.user = {name: req.body.name, type: 'temp'};                                   // create temp user
             res.render('chat', {csrfToken: req.csrfToken(), active: req.body.name, account: 'temp'}); // render chat view w/name
-        } else {res.render('chat', {csrfToken: req.csrfToken(), active: false, err: 'no info?'});}    //
+        } else {res.render('chat', {csrfToken: req.csrfToken(), active: false, err: 'no info?'});}    // is this really likely
     },
     room: function(req, res){ // check if this is a legit room else redirect to randochat
         mongo.user.findOne({name: req.params.room}, function(err, room){
             if(room){
+                var status = false; // Availabilty of room pervayer, false if pervayer makes request
                 var existingUser = req.session.user ? req.session.user.name : false;    // if (?) active session : pass false if new session
+                if(existingUser !== room.name){ // if this is a user other than the room pervayer
+                    var openRM = rooms.map(function(each){return each.room;}).indexOf(room.name); // check if this room is active
+                    if(openRM > -1){status = rooms[openRM].socket;} // give id to ping pervayer when this user gets id
+                }
                 res.render('chat', {
                     csrfToken: req.csrfToken(),
                     active: existingUser,
                     room: req.params.room,
                     account: req.session.user.type,
+                    status: status,
                 }); // pass csrf and username
             } else {
                 res.send(req.params.room + ' does not exist');

@@ -136,16 +136,17 @@ var pages = {                               // page based opporations
         var active = $('#active').html();   // grab name of active user if there is one
         var room = $('#room').html();       // get potential room name being visited
 
-        if(active){                         // given there is an active user
-            var account = $('#account').html(); // figure clients account type
-            if(account === 'free'){
-                $('#brand').html('randochat/' + active);
-                room = active;
-            }
+        if(active){                         // given this is an active user
             sock.name(active);              // activate socket connection
             myTurn.set(false);              // Block untill server gives a match
             document.getElementById('textEntry').oninput = send.input; // listen for input event
-            $('.chat.view').show();         // reshow chat view
+            $('.chat.view').show();                      // reshow chat view
+            var account = $('#account').html();          // figure clients account type
+            if(account === 'free' && !room){             // if this user has their own acount and is visiting slash
+                $('#brand').html('randochat/' + active); // Set default as their room
+                room = active;                           // make sure room is something so bg will reflect status
+                sock.et.emit('newRoom', active);         // show that this room is now active
+            }
             sock.match();                   // signal server match desired
         } else {$('.name.view').show();}    // show sign in if no active user was passed by server
 
