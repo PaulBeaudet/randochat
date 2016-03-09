@@ -135,20 +135,26 @@ var sock = {  // -- handle socket.io connection events
         if(sock.host){ sock.et.emit('knock', {to: sock.host, from: sock.nick});} // knock knock! Are you availible?
         sock.et.on('status', function(ready){
             if(ready){                            // is host replied with their id they are availible
-                sock.start($('#present').html()); // connect w/host they already connect w/you
+                sock.start(sock.host);            // connect w/host they already connect w/you
             } else {                              // status unavailible
                 $('#status').html($('#room').html() + ' is talking to someone right now');// notify host is talking with someone
             }
         });
-        sock.et.on('newRoom', function(name){
-            console.log(name + 's room is open'); // prompt to knock again
+        sock.et.on('newRoom', function(id){
+            sock.host = id;                       // we can now get id of our host
+            $('#status').html($('#room').html() + ' became available!');
+            $('#status').append($('<button class="btn btn-md btn-success text-center" id="knock"/>').html('knock'));
+            $('#knock').click(function(){
+                sock.et.emit('knock', {to: id, from: sock.nick});
+                $('#status').hide();
+                $('#knock').remove();
+            });
         });
     },
     openRM: function(){ // on hosting a room
         sock.et.on('knock', function(from){
             if(sock.to){                                             // if talking to someone
                 sock.et.emit('status', {to: from.id, ready: false}); // note host is occupied
-                console.log(from.name + ' wants to talk');           // tell host who knocked
             } else {                                                 // if not talking
                 sock.et.emit('status', {to: from.id, ready: true});  // all signals go
                 sock.start(from.id);                                 // start a conversation w/knocker

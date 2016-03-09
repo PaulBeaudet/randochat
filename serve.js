@@ -24,7 +24,7 @@ var when = {
     },
     newRoom: function(socketID, name){
         rooms.push({socket: socketID, room: name}); // push room
-        sock.ets.emit('newRoom', name);             // socket emit to all availablity, in case folks are at your door
+        sock.ets.emit('newRoom', socketID);         // socket emit to all availablity, in case folks are at your door
     }
 }
 

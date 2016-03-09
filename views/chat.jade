@@ -25,9 +25,9 @@ block content
             li.view.chat
                 if room
                     if status
-                        #status.row.text-center.text-success 1 user(s) waiting for #{room}
+                        #status.row.text-center.text-success waiting for #{room}
                     else
-                        #status.row.text-center.text-danger 0 #{room} is offline right now
+                        #status.row.text-center.text-success #{room} is offline right now
                 else
                     #status.row.text-center.text-success Searching for matches...
                 #history
