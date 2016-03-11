@@ -142,7 +142,7 @@ var sock = {  // -- handle socket.io connection events
         });
         sock.et.on('newRoom', function(id){
             sock.host = id;                       // we can now get id of our host
-            $('#status').html($('#room').html() + ' became available!');
+            $('#status').html($('#room').html() + ' became available!').show();
             $('#status').append($('<button class="btn btn-md btn-success text-center" id="knock"/>').html('knock'));
             $('#knock').click(function(){
                 sock.et.emit('knock', {to: id, from: sock.nick});
@@ -153,7 +153,11 @@ var sock = {  // -- handle socket.io connection events
     },
     openRM: function(){ // on hosting a room
         sock.et.on('knock', function(from){
-            if(sock.to){                                             // if talking to someone
+            if(sock.to){                                               // if talking to someone
+                $('#status').html(from.name + " just knocked").show(); // display whomever just knocked
+                setTimeout(function(){
+                    $('#status').hide();
+                }, 5000);
                 sock.et.emit('status', {to: from.id, ready: false}); // note host is occupied
             } else {                                                 // if not talking
                 sock.et.emit('status', {to: from.id, ready: true});  // all signals go
@@ -169,7 +173,7 @@ var sock = {  // -- handle socket.io connection events
 
 var pages = {                               // page based opporations
     init: function(){                       // on click functions
-        var active = $('#active').html();   // grab name of active user if there is one
+        var active = $('#active').text();   // grab name of active user if there is one
         if(active){                         // given this is an active user
             $('.chat.view').show();         // show chat view
             sock.name(active);              // activate socket connection

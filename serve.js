@@ -64,8 +64,11 @@ var mongo = { // depends on: mongoose
 var userAct = { // dep: mongo
     hash: require('bcryptjs'), // hash passwords with bcrypt
     auth: function(req, res){  // make sure user has a name
-        var existingUser = req.session.user ? req.session.user.name : false;    // if (?) active session : pass false if new session
-        res.render('chat', {csrfToken: req.csrfToken(), active: existingUser, account: req.session.user.type}); // pass csrf and username
+        if(req.session.user){
+            res.render('chat', {csrfToken: req.csrfToken(), active: req.session.user.name, account: req.session.user.type});
+        } else {        // pass csrf, username, and account type
+            res.render('chat', {csrfToken: req.csrfToken(), active: '', account: 'temp'}); // pass csrf and username
+        }
     },
     login: function(req, res){
         if(req.body.password && req.body.name){                                      // if name & password were posted
@@ -80,7 +83,7 @@ var userAct = { // dep: mongo
                             account: 'free',
                         });
                     } else {                                                         // if password is wrong case
-                        res.render('chat', {csrfToken: req.csrfToken(), active: false, err: true});    // re-render name page
+                        res.render('chat', {csrfToken: req.csrfToken(), active: '', err: true});    // re-render name page
                     }
                 } else {                                                             // given no user make one
                     var user = new mongo.user({                                      // create user document
@@ -90,7 +93,7 @@ var userAct = { // dep: mongo
                     });
                     user.save(function(err){                                         // request to save this user
                         if(err){                                                     // if error on user save
-                            res.render('chat', {csrfToken: req.csrfToken(), active: false, err: err}); // render inactive page with error
+                            res.render('chat', {csrfToken: req.csrfToken(), active: '', err: err}); // render inactive page with error
                         } else {                                                     // user successfully saved, log em in
                             req.session.user = {name: req.body.name, type: 'free'};  // save session cookie
                             res.render('chat', {csrfToken: req.csrfToken(), active: req.body.name, account: 'free'});   // render page w/name
@@ -101,13 +104,13 @@ var userAct = { // dep: mongo
         } else if(req.body.name){                                                                     // if only name was posted
             req.session.user = {name: req.body.name, type: 'temp'};                                   // create temp user
             res.render('chat', {csrfToken: req.csrfToken(), active: req.body.name, account: 'temp'}); // render chat view w/name
-        } else {res.render('chat', {csrfToken: req.csrfToken(), active: false, err: 'no info?'});}    // is this really likely
+        } else {res.render('chat', {csrfToken: req.csrfToken(), active: '', err: 'no info?'});}    // is this really likely
     },
     room: function(req, res){ // check if this is a legit room else redirect to randochat
         mongo.user.findOne({name: req.params.room}, function(err, room){
             if(room){
                 var present = false; // Availabilty of room pervayer, false if pervayer makes request
-                var existingUser = req.session.user ? req.session.user.name : false;    // if (?) active session : pass false if new session
+                var existingUser = req.session.user ? req.session.user.name : '';    // if (?) active session : pass false if new session
                 if(existingUser !== room.name){ // if this is a user other than the room pervayer
                     var openRM = rooms.map(function(each){return each.room;}).indexOf(room.name); // check if this room is active
                     if(openRM > -1){present = rooms[openRM].socket;} // give id to ping pervayer when this user gets id
@@ -116,9 +119,9 @@ var userAct = { // dep: mongo
                     csrfToken: req.csrfToken(),
                     active: existingUser,
                     room: req.params.room,
-                    account: req.session.user.type,
+                    account: req.session.user ? req.session.user.type : false,
                     present: present,
-                }); // pass csrf and username
+                });  // pass csrf and username
             } else {
                 res.send(req.params.room + ' does not exist');
             }
