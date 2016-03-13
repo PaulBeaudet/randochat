@@ -188,7 +188,8 @@ var pages = {                               // page based opporations
                     $('#brand').html('randochat/' + active); // Set default as their room
                     sock.et.emit('newRoom', active);         // show that this room is now active (match people to this user)
                     sock.openRM();                           // listen for knock events
-                } else { sock.match(); }                     // else use random matching
+                }
+                sock.match();                                // else use random matching
             }
         } else { $('.name.view').show(); }  // No active session? must sign in. NOTE: page reload on post request
 
