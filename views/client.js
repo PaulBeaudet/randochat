@@ -164,6 +164,15 @@ var visitor = {
 
 var host = {
     openRM: function(active){                       // on hosting a room
+        $('#speedToggle').show().on('click', function(){
+            if($('#speedToggle').text() === 'show speed'){
+                $('#wpm').show();
+                $('#speedToggle').text('hide speed');
+            } else {
+                $('#wpm').hide();
+                $('#speedToggle').text('show speed');
+            }
+        });
         $('#brand').html('randochat/' + sock.nick); // Set default as their room
         sock.et.emit('newRoom', sock.nick);         // show that this room is now active (match people to this user)
         sock.et.on('knock', function(from){
@@ -191,6 +200,8 @@ var pages = {                               // page based opporations
     room: $('#room').html(),                // room this client is in
     init: function(){                       // on click functions
         if(sock.nick){                      // given this is an active user
+            $('#wpm').hide();
+            $('#speedToggle').hide();
             $('.chat.view').show();         // show chat view
             sock.init();                    // activate socket connection
             myTurn.set(false);              // Block untill server gives a match
