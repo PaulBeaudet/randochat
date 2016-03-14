@@ -109,7 +109,7 @@ var userAct = { // dep: mongo
     room: function(req, res){ // check if this is a legit room else redirect to randochat
         mongo.user.findOne({name: req.params.room}, function(err, room){
             if(room){
-                var present = false; // Availabilty of room pervayer, false if pervayer makes request
+                var present = ''; // Availabilty of room pervayer, false if pervayer makes request
                 var existingUser = req.session.user ? req.session.user.name : '';    // if (?) active session : pass false if new session
                 if(existingUser !== room.name){ // if this is a user other than the room pervayer
                     var openRM = rooms.map(function(each){return each.room;}).indexOf(room.name); // check if this room is active
@@ -119,7 +119,7 @@ var userAct = { // dep: mongo
                     csrfToken: req.csrfToken(),
                     active: existingUser,
                     room: req.params.room,
-                    account: req.session.user ? req.session.user.type : false,
+                    account: req.session.user ? req.session.user.type : '',
                     present: present,
                 });  // pass csrf and username
             } else {

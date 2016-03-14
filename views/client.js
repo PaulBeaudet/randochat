@@ -130,14 +130,27 @@ var sock = {  // -- handle socket.io connection events
         $('#topnav').fadeOut(2000);            // fade out navbar
         $('#status').css('display', 'none');   // hide wait msg
     },
+    initChat: function(){
+        $('#status').append($('<button class="btn btn-md btn-success text-center" id="initChat"/>').html('chat'));
+        $('#initChat').click(function(){
+            sock.match();                                 // initialize match sequence
+            $('#status').html('waiting for matches...');  // show that server is now waiting for matches
+            $('#initChat').remove();                      // remove the chat init button
+        });
+    },
     entry: function(){ // on entering a room
         sock.host = $('#present').html();
         if(sock.host){ sock.et.emit('knock', {to: sock.host, from: sock.nick});} // knock knock! Are you availible?
+        else {
+            $('#status').html($('#room').html() + ' offline, chat with others in meantime? '); // notify host occupied
+            sock.initChat();                      // provide start chat button
+        }
         sock.et.on('status', function(ready){
             if(ready){                            // is host replied with their id they are availible
                 sock.start(sock.host);            // connect w/host they already connect w/you
             } else {                              // status unavailible
-                $('#status').html($('#room').html() + ' is talking to someone right now');// notify host is talking with someone
+                $('#status').html($('#room').html() + ' is talking to someone, chat with others in meantime? '); // notify host occupied
+                sock.initChat();                  // provide start chat button
             }
         });
         sock.et.on('newRoom', function(id){
