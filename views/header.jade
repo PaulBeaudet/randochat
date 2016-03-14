@@ -9,10 +9,6 @@ html
         link(rel='stylesheet', href='bower_components/bootstrap/dist/css/bootstrap-theme.min.css')
         link(rel='stylesheet', href='css/styles.css')
         title Randochat!
-    if room
-        body#app.bg-info
-            span#present.hidden #{present}
-            block content
-    else
-        body#app
-            block content
+
+    body#app
+        block content

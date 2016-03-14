@@ -2,16 +2,14 @@
 extends ./header.jade
 
 block content
+    span#hostID.hidden #{present}
+    span#room.hidden #{room}
     #topnav.navbar.navbar-inverse.navbar-static-top
         .container
             .navbar-header
                 button.navbar-toggle.text-info(type= "button", data-toggle= "collapse", data-target= ".navbar-collapse")
                     span.glyphicon.glyphicon-menu-hamburger
-                span#room.hidden #{room}
-                - var path = '/'
-                if room
-                    - path = path + room
-                a.navbar-brand#brand(href=path) randochat#{path}
+                a.navbar-brand#brand(href='/'+room) randochat/#{room}
             .navbar-collapse.collapse
                 ul.nav.navbar-nav.navbar-right
                     li
@@ -23,13 +21,11 @@ block content
     .container#allViews
         ul
             li.view.chat
-                if room
-                    if status
-                        #status.row.text-center.text-success waiting for #{room}
-                    else
-                        #status.row.text-center.text-success #{room} is offline right now
-                else
-                    #status.row.text-center.text-success Searching for matches...
+                #msgRow.row.text-center
+                    .col-xs-12
+                        span#status.text-success waiting for matches...
+                        span &nbsp;
+                        button#sysBTN.btn.btn-md.btn-success Cancel
                 #history
                 h1#wpm.row.text-center.text-success
                 include textInput.jade

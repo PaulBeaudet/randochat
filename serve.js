@@ -20,7 +20,7 @@ var when = {
         var index = queue.indexOf(socketID);          // get possible queued index of this socket
         if(index > -1){queue.splice(index, 1);}       // remove queued entry from queue
         var openRM = rooms.map(function(each){return each.socket;}).indexOf(socketID); // check if this room is active
-        if(openRM > -1){rooms.splice(openRM, 1);}     // remove room if its pervayer is leaving
+        if(openRM > -1){rooms.splice(openRM, 1);}     // remove room: host has left
     },
     newRoom: function(socketID, name){
         rooms.push({socket: socketID, room: name}); // push room

@@ -3,7 +3,8 @@ var NUM_ENTRIES = 4;   // number of dialog rows allowed in the application
 var OPEN_HELM = 25;    // time before helm can be taken by interuption
 var FULL_TIMEOUT = 15; // timeout for long inactivity
 var MAX_MONO = 60;     // maximum time that can be used to monologe
-var PAUSE_TIMEOUT = 3; // inactivity timeout
+var PAUSE_TIMEOUT = 2; // inactivity timeout
+var TRANSFER_WAIT = 5; // amount of seconds a transfer is considered
 
 var convo = {
     items: 0,
@@ -60,23 +61,25 @@ var myTurn = {
         if(!myTurn.isIt){                   // not this users turn, might this client talk?
             if(myTurn.elapsed > OPEN_HELM || myTurn.idle > PAUSE_TIMEOUT){myTurn.set(true);} // check for my turn
         }
-        if(myTurn.idle > FULL_TIMEOUT ){                        // disconnect conditions
-            sock.match();                                       // signal ready for a new partner, w/ old partner
-            myTurn.wait();
-        } else if(myTurn.elapsed > MAX_MONO){
-            console.log($('.user:last').html() + ' ' + sock.nick);
+        if(myTurn.idle > FULL_TIMEOUT ){myTurn.wait();}        // disconnect conditions
+        else if(myTurn.elapsed > MAX_MONO){
             if($('.user:last').html() === sock.nick){sock.match();} // just talked for max time without response, new match
-            else { pages.toggle('.chat', '.mono');}                 // switch from chat to mono when user did too much listening / idling
-            myTurn.wait();
+            else { // switch from chat to mono when user did too much listening / idling
+                pages.toggle('.chat', '.mono');
+                myTurn.clear();
+            }
         } else {myTurn.clock = setTimeout(myTurn.check, 1000);} // set next timeout when still connected
     },
     wait: function(){
+        myTurn.clear();                                         // clear previous data
+        pages.wait();                                           // searching process
+    },
+    clear: function(){
         convo.rm();                                             // clear out conversation history
         myTurn.set(false);                                      // block typing
         myTurn.idle = 0;                                        // reset idle to zero
         send.clear();                                           // be sure text box is cleared when disconnecting
         $('#topnav').fadeIn(1000);                              // reshow nav bar
-        $('#status').css('display', 'block').html('waiting for matches...');  // show wait message
     }
 }
 
@@ -114,10 +117,9 @@ var speed = { // -- handles gathing speed information
 var sock = {  // -- handle socket.io connection events
     et: io(), // start socket.io listener
     to: '',   // socketid of our partner
-    nick: '', // name of this client
-    host: '', // socket id of availible room host
-    name: function(nickName){                      // allow chat and go when we have a name
-        sock.nick = nickName;                      // learn ones own name
+    nick: $('#active').text(),                     // nice name of this client
+    host: $('#hostID').html(),                     // socket id of availible room host
+    init: function(){                              // allow chat and go when we have a name
         sock.et.on('chat', convo.chat);            // recieves real time chat information
         sock.et.on('interrupt', myTurn.interrupt); // recieves new chat partners or interuptions from partner
         sock.et.on('connect_error', function(){window.location.replace('/');}); // reload on connection error
@@ -128,55 +130,7 @@ var sock = {  // -- handle socket.io connection events
         myTurn.set(true);                      // give the ability to talk
         myTurn.start();                        // signal begining of turn
         $('#topnav').fadeOut(2000);            // fade out navbar
-        $('#status').css('display', 'none');   // hide wait msg
-    },
-    initChat: function(){
-        $('#status').append($('<button class="btn btn-md btn-success text-center" id="initChat"/>').html('chat'));
-        $('#initChat').click(function(){
-            sock.match();                                 // initialize match sequence
-            $('#status').html('waiting for matches...');  // show that server is now waiting for matches
-            $('#initChat').remove();                      // remove the chat init button
-        });
-    },
-    entry: function(){ // on entering a room
-        sock.host = $('#present').html();
-        if(sock.host){ sock.et.emit('knock', {to: sock.host, from: sock.nick});} // knock knock! Are you availible?
-        else {
-            $('#status').html($('#room').html() + ' offline, chat with others in meantime? '); // notify host occupied
-            sock.initChat();                      // provide start chat button
-        }
-        sock.et.on('status', function(ready){
-            if(ready){                            // is host replied with their id they are availible
-                sock.start(sock.host);            // connect w/host they already connect w/you
-            } else {                              // status unavailible
-                $('#status').html($('#room').html() + ' is talking to someone, chat with others in meantime? '); // notify host occupied
-                sock.initChat();                  // provide start chat button
-            }
-        });
-        sock.et.on('newRoom', function(id){
-            sock.host = id;                       // we can now get id of our host
-            $('#status').html($('#room').html() + ' became available!').show();
-            $('#status').append($('<button class="btn btn-md btn-success text-center" id="knock"/>').html('knock'));
-            $('#knock').click(function(){
-                sock.et.emit('knock', {to: id, from: sock.nick});
-                $('#status').hide();
-                $('#knock').remove();
-            });
-        });
-    },
-    openRM: function(){ // on hosting a room
-        sock.et.on('knock', function(from){
-            if(sock.to){                                               // if talking to someone
-                $('#status').html(from.name + " just knocked").show(); // display whomever just knocked
-                setTimeout(function(){
-                    $('#status').hide();
-                }, 5000);
-                sock.et.emit('status', {to: from.id, ready: false}); // note host is occupied
-            } else {                                                 // if not talking
-                sock.et.emit('status', {to: from.id, ready: true});  // all signals go
-                sock.start(from.id);                                 // start a conversation w/knocker
-            }
-        });
+        $('#msgRow').hide();                   // hide message row
     },
     match: function(){
         sock.et.emit('match', sock.to); // signal ready for next match
@@ -184,28 +138,67 @@ var sock = {  // -- handle socket.io connection events
     }
 }
 
+var visitor = {
+    room: $('#room').html(),
+    initChat: function(occupation){
+        $('#status').html(visitor.room + ' ' + occupation + ', chat with others in meantime?'); // notify host occupied
+        $('#sysBTN').off().show().text('chat').on('click', pages.wait);
+    },
+    entry: function(){ // on entering a room
+        if(sock.host){ sock.et.emit('knock', {to: sock.host, from: sock.nick});} // knock knock! Are you availible?
+        else {visitor.initChat('offline');}                  // show host offline and give option to chat
+        sock.et.on('status', function(ready){                // host reply to a knock
+            if(ready){sock.start(sock.host); }               // if host replied with their id they are availible
+            else { visitor.initChat('talking to someone'); } // host on but not ready AKA talking to someone
+        });
+        sock.et.on('newRoom', function(id){
+            sock.host = id;                                  // we can now get id of our host
+            $('#status').html($('#room').html() + ' became available!').show();
+            $('#sysBTN').off().text('knock').on('click', function(){
+                sock.et.emit('knock', {to: id, from: sock.nick});
+                $('#status').html('hold on... ');
+            });
+        });
+    }
+}
+
+var host = {
+    openRM: function(active){                       // on hosting a room
+        $('#brand').html('randochat/' + sock.nick); // Set default as their room
+        sock.et.emit('newRoom', sock.nick);         // show that this room is now active (match people to this user)
+        sock.et.on('knock', function(from){
+            if(sock.to){                                                 // if talking to someone
+                $('#status').text(from.name + " just knocked: ").show(); // display whomever just knocked
+                $('#sysBTN').off().text('transfer').show().on('click', function(){
+                    myTurn.clear();                                      // clear out previous conversation
+                    sock.et.emit('status', {to: from.id, ready: true});  // all signals go
+                    sock.start(from.id);                                 // start a conversation w/knocker
+                    $('#msgRow').hide();                                 // remove system message
+                });
+                setTimeout($('#msgRow').hide, 10000);     // TODO cancel timeout
+                sock.et.emit('status', {to: from.id, ready: false});     // note host is occupied
+            } else {                                                     // if not talking
+                sock.et.emit('status', {to: from.id, ready: true});      // all signals go
+                sock.start(from.id);                                     // start a conversation w/knocker
+            }
+        });
+        pages.wait()                                                     // rando match while waiting for knocks
+    }
+}
+
 var pages = {                               // page based opporations
+    account: $('#account').html(),          // account type of user
+    room: $('#room').html(),                // room this client is in
     init: function(){                       // on click functions
-        var active = $('#active').text();   // grab name of active user if there is one
-        if(active){                         // given this is an active user
+        if(sock.nick){                      // given this is an active user
             $('.chat.view').show();         // show chat view
-            sock.name(active);              // activate socket connection
+            sock.init();                    // activate socket connection
             myTurn.set(false);              // Block untill server gives a match
             document.getElementById('textEntry').oninput = send.input; // listen for input event
-            var account = $('#account').html();          // figure clients account type
-            var room = $('#room').html();                // get potential room name being visited
-            if(room){ sock.entry(); }                    // entering someone room case
-            else {
-                if(account === 'free'){                      // case that host has returned
-                    $('#app').addClass('bg-info');           // set a particular color for room host
-                    $('#brand').html('randochat/' + active); // Set default as their room
-                    sock.et.emit('newRoom', active);         // show that this room is now active (match people to this user)
-                    sock.openRM();                           // listen for knock events
-                }
-                sock.match();                                // else use random matching
-            }
+            if(pages.room){visitor.entry();}                           // entering someone room case
+            else if(pages.account === 'free'){host.openRM();}          // if this is a room host: open room
+            else {sock.match();}                                       // rando matches for temp users
         } else { $('.name.view').show(); }  // No active session? must sign in. NOTE: page reload on post request
-
         $('#resume').click(function(){      // resume from an inactive state
             sock.match();                   // signal ready for new match
             pages.toggle('.mono', '.chat'); // toggle mono to chat
@@ -214,11 +207,23 @@ var pages = {                               // page based opporations
             sock.et.emit('pause');          // soft disconnect event
             pages.toggle('.chat', '.name'); // toggle chat to name
         });
+        $('#sysBTN').on('click', pages.holdState);
         $('#sendButton').click(function(){$('#topnav').fadeToggle(500);});
     },
     toggle: function(hide, show){
         $(hide + '.view').hide();       // hide view
         $(show + '.view').show();       // show view
+    },
+    holdState: function(){
+        sock.et.emit('pause');          // soft disconnect
+        $('#status').text('only active users are matched press "match" when ready');
+        $('#sysBTN').off().text('match').on('click', pages.wait);
+    },
+    wait: function(){
+        $('#status').show().html('waiting for matches...');                    // show wait message
+        $('#sysBTN').off().show().text('Cancel').on('click', pages.holdState); // hold on if clicked
+        $('#msgRow').show();                                                   // show everything in row
+        sock.match();                                                          // do as says search for matches
     }
 }
 
