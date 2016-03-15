@@ -1,5 +1,4 @@
 // client.js ~ Copyright 2015 Paul Beaudet ~ MIT License see LICENSE_MIT for detials
-var NUM_ENTRIES = 4;   // number of dialog rows allowed in the application
 var OPEN_HELM = 25;    // time before helm can be taken by interuption
 var FULL_TIMEOUT = 15; // timeout for long inactivity
 var MAX_MONO = 60;     // maximum time that can be used to monologe
@@ -7,6 +6,7 @@ var PAUSE_TIMEOUT = 2; // inactivity timeout
 var TRANSFER_WAIT = 5; // amount of seconds a transfer is considered
 
 var convo = {
+    entries: 8,
     items: 0,
     chat: function(rtt){  // update this users most current message
         $('.txt:last').text(rtt.text);                          // update message
@@ -14,11 +14,11 @@ var convo = {
         $('#wpm').html(speed.realTime(rtt.text.length)+' WPM'); // show speed after start
     },
     next: function(rtt){
-        if(convo.items === NUM_ENTRIES){$('.message:first').remove();} // make room if entries full
-        else{convo.items++;}                                         // count entries
-        speed.realTime();                                            // start speedometer
-        var nameDiv = $('<span class="user col-xs-3 pull-right text-success"/>').text(rtt.from);
-        var textDiv = $('<span class="txt col-xs-9"/>').text(rtt.text);
+        if(convo.items === convo.entries){$('.message:first').remove();} // make room if entries full
+        else{convo.items++;}                                             // count entries
+        speed.realTime();                                                // start speedometer
+        var nameDiv = $('<span class="user col-xs-4 pull-right text-success"/>').text(rtt.from);
+        var textDiv = $('<span class="txt col-xs-8"/>').text(rtt.text);
         $('#history').append($('<div class="row message"/>').append( textDiv, nameDiv));
     },
     rm: function(){
@@ -79,7 +79,7 @@ var myTurn = {
         myTurn.set(false);                                      // block typing
         myTurn.idle = 0;                                        // reset idle to zero
         send.clear();                                           // be sure text box is cleared when disconnecting
-        $('#topnav').fadeIn(1000);                              // reshow nav bar
+        if(pages.isMobile.matches){$('#topnav').fadeIn(1000);}  // reshow nav bar in mobile
     }
 }
 
@@ -129,7 +129,7 @@ var sock = {  // -- handle socket.io connection events
         sock.to = partner;                     // get SOCKETID of who you're talking to
         myTurn.set(true);                      // give the ability to talk
         myTurn.start();                        // signal begining of turn
-        $('#topnav').fadeOut(2000);            // fade out navbar
+        if(pages.isMobile.matches){$('#topnav').fadeOut(2000);} // fade out navbar on mobile
         $('#msgRow').hide();                   // hide message row
     },
     match: function(){
@@ -198,10 +198,12 @@ var host = {
 var pages = {                               // page based opporations
     account: $('#account').html(),          // account type of user
     room: $('#room').html(),                // room this client is in
+    isMobile: window.matchMedia("only screen and (max-width: 760px)"),
     init: function(){                       // on click functions
         if(sock.nick){                      // given this is an active user
-            $('#wpm').hide();
-            $('#speedToggle').hide();
+            if(pages.isMobile.matches){convo.entries = 4;} // shorten history if mobile
+            $('#wpm').hide();               // hide speedometer by default
+            $('#speedToggle').hide();       // hide option to display speed by default
             $('.chat.view').show();         // show chat view
             sock.init();                    // activate socket connection
             myTurn.set(false);              // Block untill server gives a match
