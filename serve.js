@@ -23,8 +23,8 @@ var when = {
         if(openRM > -1){rooms.splice(openRM, 1);}     // remove room: host has left
     },
     newRoom: function(socketID, name){
-        rooms.push({socket: socketID, room: name}); // push room
-        sock.ets.emit('newRoom', socketID);         // socket emit to all availablity, in case folks are at your door
+        rooms.push({socket: socketID, room: name});               // push room
+        sock.ets.emit('newRoom', {socket: socketID, room: name}); // socket emit to all availablity, in case folks are at your door
     }
 }
 

@@ -3,7 +3,7 @@ var OPEN_HELM = 25;    // time before helm can be taken by interuption
 var FULL_TIMEOUT = 15; // timeout for long inactivity
 var MAX_MONO = 60;     // maximum time that can be used to monologe
 var PAUSE_TIMEOUT = 2; // inactivity timeout
-var TRANSFER_WAIT = 5; // amount of seconds a transfer is considered
+var TRANSFER_WAIT = 10; // amount of seconds a transfer is considered
 
 var convo = {
     entries: 8,
@@ -110,7 +110,7 @@ var speed = { // -- handles gathing speed information
     realTime: function(chars){
         var now = new Date().getTime();
         if(chars){return (60000/((now-speed.start)/chars)/5).toFixed();} // return words per minute
-        else { speed.start = now; }                                       // no param/chars starts the clock
+        else { speed.start = now; }                                      // no param/chars starts the clock
     },
 }
 
@@ -139,10 +139,11 @@ var sock = {  // -- handle socket.io connection events
 }
 
 var visitor = {
+    cCount: TRANSFER_WAIT + 1, // counts down transfer proccess, gives host time to respond to a knock
     room: $('#room').html(),
     initChat: function(occupation){
         $('#status').html(visitor.room + ' ' + occupation + ', chat with others in meantime?'); // notify host occupied
-        $('#sysBTN').off().show().text('chat').on('click', pages.wait);
+        $('#sysBTN').off().text('chat').on('click', pages.wait);
     },
     entry: function(){ // on entering a room
         if(sock.host){ sock.et.emit('knock', {to: sock.host, from: sock.nick});} // knock knock! Are you availible?
@@ -152,18 +153,34 @@ var visitor = {
             else { visitor.initChat('talking to someone'); } // host on but not ready AKA talking to someone
         });
         sock.et.on('newRoom', function(id){
-            sock.host = id;                                  // we can now get id of our host
-            $('#status').html($('#room').html() + ' became available!').show();
-            $('#sysBTN').off().text('knock').on('click', function(){
-                sock.et.emit('knock', {to: id, from: sock.nick});
-                $('#status').html('hold on... ');
-            });
+            if(id.room === visitor.room){                                           // make sure this is the room we are in
+                sock.host = id.socket;                                              // we can now get id of our host
+                $('#status').html($('#room').html() + ' became available!').show(); // show that our host became available
+                $('#sysBTN').off().text('knock').on('click', function(){            // set up a knock action
+                    sock.et.emit('knock', {to: id.socket, from: sock.nick});        // knock on host door
+                    $('#sysBTN').off().text('hold on');                             // TODO Cancel knock?
+                    visitor.countDown();                                            // count knock opportunity down
+                });
+            }
         });
+    },
+    countDown: function(){
+        visitor.cCount--;
+        if(visitor.cCount){ // count down process
+            $('#status').html('waiting for quick reply... ' + visitor.cCount);
+            setTimeout(visitor.countDown, 1000);
+        } else {            // final act
+            visitor.cCount = TRANSFER_WAIT + 1;
+            visitor.initChat('is eating pie');
+        }
     }
 }
 
 var host = {
+    tTime: TRANSFER_WAIT + 1,
+    timer: 0,
     openRM: function(active){                       // on hosting a room
+        $('#brand').html('randochat/' + sock.nick); // Set default as their room
         $('#speedToggle').show().on('click', function(){
             if($('#speedToggle').text() === 'show speed'){
                 $('#wpm').show();
@@ -173,18 +190,18 @@ var host = {
                 $('#speedToggle').text('show speed');
             }
         });
-        $('#brand').html('randochat/' + sock.nick); // Set default as their room
-        sock.et.emit('newRoom', sock.nick);         // show that this room is now active (match people to this user)
         sock.et.on('knock', function(from){
             if(sock.to){                                                 // if talking to someone
-                $('#status').text(from.name + " just knocked: ").show(); // display whomever just knocked
-                $('#sysBTN').off().text('transfer').show().on('click', function(){
+                $('#status').text(from.name + " just knocked: ");        // display whomever just knocked
+                host.transfer();                                         // count down transfer oppertunity
+                $('#msgRow').show();                                     // show msg display
+                $('#sysBTN').off().text('transfer').on('click', function(){
                     myTurn.clear();                                      // clear out previous conversation
                     sock.et.emit('status', {to: from.id, ready: true});  // all signals go
                     sock.start(from.id);                                 // start a conversation w/knocker
-                    $('#msgRow').hide();                                 // remove system message
+                    host.clearTransMSG();                                // remove system message
                 });
-                setTimeout($('#msgRow').hide, 10000);     // TODO cancel timeout
+                setTimeout($('#msgRow').hide, (TRANSFER_WAIT * 1000));   // TODO cancel timeout
                 sock.et.emit('status', {to: from.id, ready: false});     // note host is occupied
             } else {                                                     // if not talking
                 sock.et.emit('status', {to: from.id, ready: true});      // all signals go
@@ -192,6 +209,18 @@ var host = {
             }
         });
         pages.wait()                                                     // rando match while waiting for knocks
+    },
+    transfer: function(){
+        host.tTime--;
+        if(host.tTime){
+            $('#tCount').text(host.tTime + ' ');
+            host.timer = setTimeout(host.transfer, 1000);
+        } else { host.clearTransMSG();}
+    },
+    clearTransMSG: function(){
+        $('#tCount').text(' ');
+        clearTimeout(host.timer); host.timer = 0;            // tie up timer loose string
+        $('#msgRow').hide();
     }
 }
 
@@ -228,15 +257,16 @@ var pages = {                               // page based opporations
         $(show + '.view').show();       // show view
     },
     holdState: function(){
-        sock.et.emit('pause');          // soft disconnect
+        sock.et.emit('pause');          // soft disconnect also disactivates rooms
         $('#status').text('only active users are matched press "match" when ready');
         $('#sysBTN').off().text('match').on('click', pages.wait);
     },
     wait: function(){
-        $('#status').show().html('waiting for matches...');                    // show wait message
-        $('#sysBTN').off().show().text('Cancel').on('click', pages.holdState); // hold on if clicked
-        $('#msgRow').show();                                                   // show everything in row
-        sock.match();                                                          // do as says search for matches
+        if(pages.account === 'free'){sock.et.emit('newRoom', sock.nick);} // show that this room is now active (match people to this user)
+        $('#status').show().html('waiting for matches...');               // show wait message
+        $('#sysBTN').off().text('Cancel').on('click', pages.holdState);   // hold on if clicked
+        $('#msgRow').show();                                              // show everything in row
+        sock.match();                                                     // do as says search for matches
     }
 }
 
