@@ -9,7 +9,10 @@ block content
             .navbar-header
                 button.navbar-toggle.text-info(type= "button", data-toggle= "collapse", data-target= ".navbar-collapse")
                     span.glyphicon.glyphicon-menu-hamburger
-                a.navbar-brand#brand(href='/'+room) randochat/#{room}
+                - var path = '/'
+                if room
+                    - path = path + room
+                a.navbar-brand#brand(href=path) randochat#{path}
             .navbar-collapse.collapse
                 ul.nav.navbar-nav.navbar-right
                     li
@@ -42,7 +45,7 @@ block content
                         input(type='hidden', name="_csrf", value=csrfToken)
                         .form-group
                             label(for='usr') NAME, (only requirment to continue)
-                            input.form-control(type='text', name='name', required='true')
+                            input.form-control(type='text' maxlength='15', name='name', required='true')
                         .form-group
                             label(for='signupPassword')  Password (optional, with account)
                             input.form-control(type='password', name='password')
