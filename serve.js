@@ -58,14 +58,14 @@ var mongo = { // depends on: mongoose
             password: { type: String, required: '{PATH} is required' },           // user password
             type: {type: String},                                                 // type of account, admin, mod, ect
         }));
-        mongo.room = mongo.db.model('room', new Scheme({
+        mongo.room = mongo.db.model('room', new Schema({
             id: ObjectId,
             host: {type: String, required: '{PATH} is required', unique: true },  // name of host room
-            visits: [Strings],                                                    // array of visitors
+            visits: [String],                                                     // array of visitors
             chats: {type: Number}                                                 // number of successfull conversations
         }));
-        mongo.chats = mongo.db.model('chats', new Scheme({
-            id: ObjectID,
+        mongo.chats = mongo.db.model('chats', new Schema({
+            id: ObjectId,
             timestamp: {type: Date, default: Date.now},  // timestamp of end of conversation
             conversation: [String],                      // array of two conversationalist
             speed: [Number],                             // array of two wpm counts
