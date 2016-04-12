@@ -68,7 +68,7 @@ var mongo = { // depends on: mongoose
             id: ObjectID,
             timestamp: {type: Date, default: Date.now},  // timestamp of end of conversation
             conversation: [String],                      // array of two conversationalist
-            speed: [numebr],                             // array of two wpm counts
+            speed: [Number],                             // array of two wpm counts
             length: {type: Number}                       // length of chat
         }));
     }
@@ -77,10 +77,10 @@ var mongo = { // depends on: mongoose
 var userAct = { // dep: mongo
     hash: require('bcryptjs'), // hash passwords with bcrypt
     auth: function(req, res){  // make sure user has a name
-        if(req.session.user){
+        if(req.session.user){  // given this is a returning user
             res.render('chat', {csrfToken: req.csrfToken(), active: req.session.user.name, account: req.session.user.type});
-        } else {        // pass csrf, username, and account type
-            res.render('chat', {csrfToken: req.csrfToken(), active: '', account: 'temp'}); // pass csrf and username
+        } else {               // new user: no name prompts name view: reder w/csrf and account type
+            res.render('chat', {csrfToken: req.csrfToken(), active: '', account: 'temp'});
         }
     },
     login: function(req, res){
@@ -96,7 +96,7 @@ var userAct = { // dep: mongo
                             account: 'free',
                         });
                     } else {                                                         // if password is wrong case
-                        res.render('chat', {csrfToken: req.csrfToken(), active: '', err: true});    // re-render name page
+                        res.render('chat', {csrfToken: req.csrfToken(), active: '', err: true}); // re-render name page
                     }
                 } else {                                                             // given no user make one
                     var user = new mongo.user({                                      // create user document
@@ -168,7 +168,7 @@ var serve = {
         app.use(require('csurf')());                         // Cross site request forgery tokens
         app.use(serve.express.static(__dirname + '/views')); // serve page dependancies (sockets, jquery, bootstrap)
         var router = serve.express.Router();                 // create express router object to add routing events to
-        router.get('/', userAct.auth);                       // main route for getting into a randochat if you have a name
+        router.get('/', userAct.auth);                       // main route for getting into a randochat if has name
         router.post('/', userAct.login);                     // how one creates their name
         router.get('/:room', userAct.room);                  // personal rooms for special users
         router.post('/:room', userAct.login);                // how one creates their name

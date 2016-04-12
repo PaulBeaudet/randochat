@@ -63,7 +63,7 @@ var myTurn = {
         }
         if(myTurn.idle > FULL_TIMEOUT ){myTurn.wait();}        // disconnect conditions
         else if(myTurn.elapsed > MAX_MONO){
-            if($('.user:last').html() === sock.nick){sock.match();} // just talked for max time without response, new match
+            if($('.user:last').html() === sock.nick){myTurn.wait();} // just talked for max time without response, new match
             else { // switch from chat to mono when user did too much listening / idling
                 pages.toggle('.chat', '.mono');
                 myTurn.clear();
@@ -125,7 +125,7 @@ var sock = {  // -- handle socket.io connection events
         sock.et.on('connect_error', function(){window.location.replace('/');}); // reload on connection error
         sock.et.on('start', sock.start);           // kick off conversation between two people
     },
-    start: function(partner){
+    start: function(partner){                  // Start of any interchange
         sock.to = partner;                     // get SOCKETID of who you're talking to
         myTurn.set(true);                      // give the ability to talk
         myTurn.start();                        // signal begining of turn
@@ -262,7 +262,7 @@ var pages = {                               // page based opporations
         $('#sysBTN').off().text('match').on('click', pages.wait);
     },
     wait: function(){
-        if(pages.account === 'free'){sock.et.emit('newRoom', sock.nick);} // show that this room is now active (match people to this user)
+        if(pages.account === 'free'){sock.et.emit('newRoom', sock.nick);} // show room active (match people to this user)
         $('#status').show().html('waiting for matches...');               // show wait message
         $('#sysBTN').off().text('Cancel').on('click', pages.holdState);   // hold on if clicked
         $('#msgRow').show();                                              // show everything in row
