@@ -24,7 +24,7 @@ var when = {
     },
     newRoom: function(socketID, name){
         rooms.push({socket: socketID, room: name});               // push room
-        sock.ets.emit('newRoom', {socket: socketID, room: name}); // socket emit to all availablity, in case folks are at your door
+        sock.ets.emit('newRoom', {socket: socketID, room: name}); // socket emit availablity, in case folks in room
     }
 }
 
@@ -33,11 +33,11 @@ var sock = {
     listen: function(server){
         sock.ets = sock.ets(server);
         sock.ets.on('connection', function(socket){
-            socket.on('newRoom', function(name){when.newRoom(socket.id, name);});                      // create active room
+            socket.on('newRoom', function(name){when.newRoom(socket.id, name);});       // create active room
             socket.on('knock', function(knock){
                 sock.ets.to(knock.to).emit('knock', {name: knock.from, id: socket.id}); // notify room entry
             });
-            socket.on('status', function(status){sock.ets.to(status.to).emit('status', status.ready);}); // notify if availible
+            socket.on('status', function(status){sock.ets.to(status.to).emit('status', status.ready);});//notify availiblity
             socket.on('chat', function(rtt){sock.ets.to(rtt.to).emit('chat', rtt);});   // emit real time chat to partner
             socket.on('interrupt', function(rtt){sock.ets.to(rtt.to).emit('interrupt', rtt);});
             socket.on('match', function(last){when.match(socket.id, last);});
@@ -57,6 +57,19 @@ var mongo = { // depends on: mongoose
             name: { type: String, required: '{PATH} is required', unique: true }, // Name of user
             password: { type: String, required: '{PATH} is required' },           // user password
             type: {type: String},                                                 // type of account, admin, mod, ect
+        }));
+        mongo.room = mongo.db.model('room', new Scheme({
+            id: ObjectId,
+            host: {type: String, required: '{PATH} is required', unique: true },  // name of host room
+            visits: [Strings],                                                    // array of visitors
+            chats: {type: Number}                                                 // number of successfull conversations
+        }));
+        mongo.chats = mongo.db.model('chats', new Scheme({
+            id: ObjectID,
+            timestamp: {type: Date, default: Date.now},  // timestamp of end of conversation
+            conversation: [String],                      // array of two conversationalist
+            speed: [numebr],                             // array of two wpm counts
+            length: {type: Number}                       // length of chat
         }));
     }
 }
@@ -88,31 +101,31 @@ var userAct = { // dep: mongo
                 } else {                                                             // given no user make one
                     var user = new mongo.user({                                      // create user document
                         name: req.body.name,                                         // give rando's name
-                        password: userAct.hash.hashSync(req.body.password, userAct.hash.genSaltSync(10)), // hash rando's password
+                        password: userAct.hash.hashSync(req.body.password, userAct.hash.genSaltSync(10)), // hash it
                         type: 'free'                                                 // what type of account is this?
                     });
                     user.save(function(err){                                         // request to save this user
                         if(err){                                                     // if error on user save
-                            res.render('chat', {csrfToken: req.csrfToken(), active: '', err: err}); // render inactive page with error
+                            res.render('chat', {csrfToken: req.csrfToken(), active: '', err: err}); // render page w/error
                         } else {                                                     // user successfully saved, log em in
                             req.session.user = {name: req.body.name, type: 'free'};  // save session cookie
-                            res.render('chat', {csrfToken: req.csrfToken(), active: req.body.name, account: 'free'});   // render page w/name
-                        }
+                            res.render('chat', {csrfToken: req.csrfToken(), active: req.body.name, account: 'free'});
+                        } // render page w/name
                     });
                 }
             });
-        } else if(req.body.name){                                                                     // if only name was posted
-            req.session.user = {name: req.body.name, type: 'temp'};                                   // create temp user
-            res.render('chat', {csrfToken: req.csrfToken(), active: req.body.name, account: 'temp'}); // render chat view w/name
+        } else if(req.body.name){                                          // if only name was posted
+            req.session.user = {name: req.body.name, type: 'temp'};        // create temp user & render chat view w/name
+            res.render('chat', {csrfToken: req.csrfToken(), active: req.body.name, account: 'temp'});
         } else {res.render('chat', {csrfToken: req.csrfToken(), active: '', err: 'no info?'});}    // is this really likely
     },
     room: function(req, res){ // check if this is a legit room else redirect to randochat
         mongo.user.findOne({name: req.params.room}, function(err, room){
             if(room){
                 var present = ''; // Availabilty of room pervayer, false if pervayer makes request
-                var existingUser = req.session.user ? req.session.user.name : '';    // if (?) active session : pass false if new session
+                var existingUser = req.session.user ? req.session.user.name : ''; // if(?) user pass name else pass ' '
                 if(existingUser !== room.name){ // if this is a user other than the room pervayer
-                    var openRM = rooms.map(function(each){return each.room;}).indexOf(room.name); // check if this room is active
+                    var openRM = rooms.map(function(each){return each.room;}).indexOf(room.name); // check room activity
                     if(openRM > -1){present = rooms[openRM].socket;} // give id to ping pervayer when this user gets id
                 }
                 res.render('chat', {
@@ -137,8 +150,8 @@ var cookie = { // depends on client-sessions and mongo
         duration: 365 * 24 * 60 * 60 * 1000,  // cookie times out in x amount of time
     },
     meWant: function(){return cookie.session(cookie.ingredients);},
-    user: function(content){return cookie.session.util.decode(cookie.ingredients, content);}, // decode cookie for socket reactions
-}
+    user: function(content){return cookie.session.util.decode(cookie.ingredients, content);},
+}   // cookie.user : decode cookie and return (for sockets)
 
 var serve = {
     express: require('express'),
