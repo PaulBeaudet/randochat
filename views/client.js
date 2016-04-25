@@ -1,27 +1,34 @@
 // client.js ~ Copyright 2015 Paul Beaudet ~ MIT License see LICENSE_MIT for detials
-var OPEN_HELM = 25;    // time before helm can be taken by interuption
-var FULL_TIMEOUT = 15; // timeout for long inactivity
-var MAX_MONO = 60;     // maximum time that can be used to monologe
-var PAUSE_TIMEOUT = 2; // inactivity timeout
+var OPEN_HELM = 25;     // time before helm can be taken by interuption
+var FULL_TIMEOUT = 15;  // timeout for long inactivity
+var MAX_MONO = 60;      // maximum time that can be used to monologe
+var PAUSE_TIMEOUT = 2;  // inactivity timeout
 var TRANSFER_WAIT = 10; // amount of seconds a transfer is considered
 
-var convo = {
-    entries: 8,
-    items: 0,
-    chat: function(rtt){  // update this users most current message
-        $('.txt:last').text(rtt.text);                          // update message
-        myTurn.idle = 0;                                        // reset idle counter
-        $('#wpm').html(speed.realTime(rtt.text.length)+' WPM'); // show speed after start
+var convo = {    // handles visual elements of conversation history
+    partner: '', // nickname of partner we are talking to
+    entries: 8,  // default number of historical entries (can change based on device)
+    items: 0,    // which historical element currently being added to
+    chat: function(rtt){                                 // update most current message
+        $('.txt:last').text(rtt.text);                   // update message
+        myTurn.idle = 0;                                 // reset idle counter
+        $('#wpm').html(speed.realTime(rtt.text.length)); // show speed after start
     },
     next: function(rtt){
-        if(convo.items === convo.entries){$('.message:first').remove();} // make room if entries full
-        else{convo.items++;}                                             // count entries
-        speed.realTime();                                                // start speedometer
+        var finalSpeed = parseInt($('#wpm').html());                          // grab final speed of user being interupeted
+        if(rtt.from === sock.nick){speed.average(finalSpeed, speed.partner);} // we are interupting record partner
+        else {
+            speed.average(finalSpeed, speed.me);                              // we are being interupted record ourself
+            convo.partner = rtt.from;                                         // persistently hold who we are talking to: keymetrics
+        }
+        if(convo.items === convo.entries){$('.message:first').remove();}      // make room if entries full
+        else{convo.items++;}                                                  // count entries
+        speed.realTime();                                                     // reset speedometer
         var nameDiv = $('<span class="user col-xs-4 pull-right text-success"/>').text(rtt.from);
         var textDiv = $('<span class="txt col-xs-8"/>').text(rtt.text);
         $('#history').append($('<div class="row message"/>').append( textDiv, nameDiv));
     },
-    rm: function(){
+    rm: function(){ // called at end of conversation
         $('.message').remove(); // remove all messages
         convo.items = 0;        // reset number of messages added
         $('#wpm').html('');     // reset wpm counter
@@ -33,11 +40,11 @@ var myTurn = {
     elapsed: 0,
     idle: 0,
     clock: 0,
-    interrupt: function(rtt){
-        myTurn.set(false);   // note its no longer my turn
-        send.clear();        // clear message that was intrupted
-        myTurn.start();      // engage turn starting actions: timer
-        convo.next(rtt);     // display what our partner said
+    interrupt: function(rtt){           // only called when partner interupts turn, signaling turn end
+        myTurn.set(false);              // note its no longer my turn
+        send.clear();                   // clear message that was intrupted
+        myTurn.start();                 // engage turn starting actions: timer
+        convo.next(rtt);                // display what our partner said
     },
     set: function(status){
         myTurn.isIt = status;                                        // set status of whos turn it is
@@ -49,9 +56,9 @@ var myTurn = {
             $('#textEntry').addClass('wait');                        // bar out text box
         }
     },
-    start: function(){ // first turn
-        myTurn.elapsed = 0;
-        myTurn.idle = 0;
+    start: function(){                                 // called to start a new message
+        myTurn.elapsed = 0;                            // reset elapsed time
+        myTurn.idle = 0;                               // reset idle time
         clearTimeout(myTurn.clock);                    // Make sure standing timeout is removed if any
         myTurn.clock = setTimeout(myTurn.check, 1000); // create new timeout
     },
@@ -75,9 +82,10 @@ var myTurn = {
         pages.wait();                                           // searching process
     },
     clear: function(){
+        sock.keyMetric();                                       // send metrics for conversation to server
         convo.rm();                                             // clear out conversation history
         myTurn.set(false);                                      // block typing
-        myTurn.idle = 0;                                        // reset idle to zero
+        myTurn.idle = 0;                                        // reset idle
         send.clear();                                           // be sure text box is cleared when disconnecting
         if(pages.isMobile.matches){$('#topnav').fadeIn(1000);}  // reshow nav bar in mobile
     }
@@ -87,17 +95,17 @@ var send = {
     empty: true, // only way to know text was clear before typing i.e. client just stared typing
     input: function(){
         if(myTurn.isIt){
-            var rtt = {text: $('#textEntry').val(), to: sock.to, from: sock.nick};
-            if(send.empty){
-                send.empty = false;
-                sock.et.emit('interrupt', rtt);
-                convo.next(rtt);
-                myTurn.start();
-            } else {
-                sock.et.emit('chat', rtt);       // send real time chat data to partner
-                convo.chat(rtt);                 // fill personal history
+            var rtt = {text: $('#textEntry').val(), to: sock.toID, from: sock.nick};
+            if(send.empty){                                 // interupting case
+                send.empty = false;                         // entry box no longer empty
+                sock.et.emit('interrupt', rtt);             // emit interupt event
+                convo.next(rtt);                            // start next historical entry
+                myTurn.start();                             // reset turn timing
+            } else {                                        // continueing conversation case
+                sock.et.emit('chat', rtt);                  // send real time chat data to partner
+                convo.chat(rtt);                            // fill personal history
             }
-        } else {send.clear();}                   // block input
+        } else {send.clear();}                              // not our turn; block input
     },
     clear: function(){
         $('#textEntry').val(''); // clear out text in entry bar
@@ -105,36 +113,63 @@ var send = {
     }
 }
 
-var speed = { // -- handles gathing speed information
-    start: 0,
-    realTime: function(chars){
+var MAX_RECORDS = 3; // number of wpm records we care to hold in memory
+var speed = {        // -- handles gathing speed information
+    start: 0,        // when speed started to be recorded
+    me: [],          // personal speed records for average
+    partner: [],     // partner records
+    realTime: function(chars){ // resets on no argument, returns speed with number of chars
         var now = new Date().getTime();
         if(chars){return (60000/((now-speed.start)/chars)/5).toFixed();} // return words per minute
         else { speed.start = now; }                                      // no param/chars starts the clock
     },
+    average: function(wpm, records){                    // call on every message sent
+        if(wpm){records.push(wpm)};                     // as long as wpm is a number add it to array
+        if(records.length > MAX_RECORDS || !wpm){       // take an average if final or max record amount
+            var sum = 0;
+            for(var i=0; i < records.length; i++){      // for every record
+                sum += records[i];                      // add up all records
+            }
+            var avg = (sum / records.length).toFixed(); // get average of records
+            records = [];                               // erase old records
+            if(wpm){records.push(parseInt(avg));}       // besides final, roll back into array
+            return avg;
+        }
+    }
 }
 
-var sock = {  // -- handle socket.io connection events
-    et: io(), // start socket.io listener
-    to: '',   // socketid of our partner
-    nick: $('#active').text(),                     // nice name of this client
-    host: $('#hostID').html(),                     // socket id of availible room host
-    init: function(){                              // allow chat and go when we have a name
-        sock.et.on('chat', convo.chat);            // recieves real time chat information
-        sock.et.on('interrupt', myTurn.interrupt); // recieves new chat partners or interuptions from partner
+var sock = {                                        // Handle socket.io connection events
+    et: io(),                                       // start socket.io listener
+    toID: '',                                       // socketid of our partner
+    beginTime: 0,                                   // timestamp of when conversation began
+    nick: $('#active').text(),                      // nice name of this client
+    host: $('#hostID').html(),                      // socket id of availible room host
+    init: function(){                               // allow chat and go when we have a name
+        sock.et.on('chat', convo.chat);             // recieves real time chat information
+        sock.et.on('interrupt', myTurn.interrupt);  // recieves new chat partners or interuptions from partner
         sock.et.on('connect_error', function(){window.location.replace('/');}); // reload on connection error
-        sock.et.on('start', sock.start);           // kick off conversation between two people
+        sock.et.on('start', sock.start);            // kick off conversation between two people
     },
-    start: function(partner){                  // Start of any interchange
-        sock.to = partner;                     // get SOCKETID of who you're talking to
-        myTurn.set(true);                      // give the ability to talk
-        myTurn.start();                        // signal begining of turn
+    start: function(partner){                       // Called at start of any new interchange
+        sock.beginTime = new Date().getTime();      // create timestamp for begining of conversation
+        sock.toID = partner;                        // get SOCKETID of who you're talking to
+        myTurn.set(true);                           // give ability to talk
+        myTurn.start();                             // signal begining of turn
         if(pages.isMobile.matches){$('#topnav').fadeOut(2000);} // fade out navbar on mobile
-        $('#msgRow').hide();                   // hide message row
+        $('#msgRow').hide();                        // hide message row
     },
-    match: function(){
-        sock.et.emit('match', sock.to); // signal ready for next match
-        sock.to = '';                   // remove old match to show availability
+    match: function(){                              // initiates START of conversation
+        sock.et.emit('match', sock.toID);           // signal ready for next match
+        sock.toID = '';                             // remove old match to show availability
+    },
+    keyMetric: function(){
+        var endTime = new Date().getTime();         // timestamp for end of conversation
+        var totalDuration = endTime-sock.beginTime; // get duration
+        sock.et.emit('kpi', {                       // only one chatter sends one key performence metric
+            speeds: [speed.average(0, speed.me), speed.average(0, speed.partner)],
+            partners: [sock.nick, convo.partner],   // record nicknames of parties involved
+            duration: totalDuration                 // differance between conversation start and end
+        });
     }
 }
 
@@ -191,7 +226,7 @@ var host = {
             }
         });
         sock.et.on('knock', function(from){
-            if(sock.to){                                                 // if talking to someone
+            if(sock.toID){                                               // if talking to someone
                 $('#status').text(from.name + " just knocked: ");        // display whomever just knocked
                 host.transfer();                                         // count down transfer oppertunity
                 $('#msgRow').show();                                     // show msg display
@@ -231,7 +266,7 @@ var pages = {                               // page based opporations
     init: function(){                       // on click functions
         if(sock.nick){                      // given this is an active user
             if(pages.isMobile.matches){convo.entries = 4;} // shorten history if mobile
-            $('#wpm').hide();               // hide speedometer by default
+            $('.speedo').hide();            // hide speedometer by default
             $('#speedToggle').hide();       // hide option to display speed by default
             $('.chat.view').show();         // show chat view
             sock.init();                    // activate socket connection
@@ -256,7 +291,7 @@ var pages = {                               // page based opporations
         $(hide + '.view').hide();       // hide view
         $(show + '.view').show();       // show view
     },
-    holdState: function(){
+    holdState: function(){              // only start wait process for active users, that can press buttons
         sock.et.emit('pause');          // soft disconnect also disactivates rooms
         $('#status').text('only active users are matched press "match" when ready');
         $('#sysBTN').off().text('match').on('click', pages.wait);

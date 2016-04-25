@@ -25,7 +25,7 @@ var when = {
     newRoom: function(socketID, name){
         rooms.push({socket: socketID, room: name});               // push room
         sock.ets.emit('newRoom', {socket: socketID, room: name}); // socket emit availablity, in case folks in room
-    }
+    },
 }
 
 var sock = {
@@ -43,6 +43,7 @@ var sock = {
             socket.on('match', function(last){when.match(socket.id, last);});
             socket.on('disconnect', function(){when.disconnect(socket.id);});
             socket.on('pause', function(){when.disconnect(socket.id);});
+            socket.on('kpi', mongo.kpi);
         });
     },
 }
@@ -64,14 +65,25 @@ var mongo = { // depends on: mongoose
             visits: [String],                                                     // array of visitors
             chats: {type: Number}                                                 // number of successfull conversations
         }));
-        mongo.chats = mongo.db.model('chats', new Schema({
+        mongo.chat = mongo.db.model('chat', new Schema({
             id: ObjectId,
-            timestamp: {type: Date, default: Date.now},  // timestamp of end of conversation
-            conversation: [String],                      // array of two conversationalist
-            speed: [Number],                             // array of two wpm counts
-            length: {type: Number}                       // length of chat
+            timestamp: {type: Date, default: Date.now}, // timestamp of end of conversation
+            partners: [String],                         // array of two conversationalist
+            speeds: [Number],                           // array of two wpm counts
+            duration: {type: Number}                    // duration of chat
         }));
-    }
+    },
+    kpi: function(packet){
+        var chatMetric = new mongo.chat({
+            partners: packet.partners,
+            speeds: packet.speeds,
+            duration: packet.duration
+        });
+        chatMetric.save(function(err){
+            if(err){console.log(err);}
+            else{console.log('saved chat metric:' + packet.partners);}
+        });
+    },
 }
 
 var userAct = { // dep: mongo
