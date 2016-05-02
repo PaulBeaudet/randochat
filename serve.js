@@ -21,6 +21,7 @@ var when = {
         if(index > -1){queue.splice(index, 1);}       // remove queued entry from queue
         var openRM = rooms.map(function(each){return each.socket;}).indexOf(socketID); // check if this room is active
         if(openRM > -1){rooms.splice(openRM, 1);}     // remove room: host has left
+        sock.xview('trafic', {status:'disconnected'});// report disconnect to xview
     },
     newRoom: function(socketID, name){
         rooms.push({socket: socketID, room: name});               // push room
@@ -33,6 +34,7 @@ var sock = {
     listen: function(server){
         sock.ets = sock.ets(server);
         sock.ets.on('connection', function(socket){
+            sock.xview('trafic', {status:'connected'});                                 // report connection to xview
             socket.on('newRoom', function(name){when.newRoom(socket.id, name);});       // create active room
             socket.on('knock', function(knock){
                 sock.ets.to(knock.to).emit('knock', {name: knock.from, id: socket.id}); // notify room entry
@@ -46,6 +48,10 @@ var sock = {
             socket.on('kpi', mongo.kpi);
         });
     },
+    xview: function(type, event){            // sends event to crossview
+        event.type = type;                   // tack in event type
+        sock.ets.emit('xview-event', event); // emit event to statistic tracking application
+    }
 }
 
 var mongo = { // depends on: mongoose
@@ -83,6 +89,7 @@ var mongo = { // depends on: mongoose
             if(err){console.log(err);}
             else{console.log('saved chat metric:' + packet.partners);}
         });
+        sock.xview('endchat', packet);                           // send metric to crossview
     },
 }
 
