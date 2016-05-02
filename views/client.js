@@ -32,6 +32,7 @@ var convo = {    // handles visual elements of conversation history
         $('.message').remove(); // remove all messages
         convo.items = 0;        // reset number of messages added
         $('#wpm').html('');     // reset wpm counter
+        $('#speedo').hide();    // hide your speedo! TODO: make showing your speedo persistent
     }
 }
 
@@ -218,10 +219,10 @@ var host = {
         $('#brand').html('randochat/' + sock.nick); // Set default as their room
         $('#speedToggle').show().on('click', function(){
             if($('#speedToggle').text() === 'show speed'){
-                $('#wpm').show();
+                $('#speedo').show();
                 $('#speedToggle').text('hide speed');
             } else {
-                $('#wpm').hide();
+                $('#speedo').hide();
                 $('#speedToggle').text('show speed');
             }
         });
@@ -266,7 +267,7 @@ var pages = {                               // page based opporations
     init: function(){                       // on click functions
         if(sock.nick){                      // given this is an active user
             if(pages.isMobile.matches){convo.entries = 4;} // shorten history if mobile
-            $('.speedo').hide();            // hide speedometer by default
+            $('#speedo').hide();            // hide speedometer by default
             $('#speedToggle').hide();       // hide option to display speed by default
             $('.chat.view').show();         // show chat view
             sock.init();                    // activate socket connection
