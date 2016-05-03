@@ -16,12 +16,22 @@ var when = {
         sock.ets.to(queued).emit('start', incoming);  // make sure this socket knows it
         queue.splice(queue.indexOf(queued), 1);       // remove queued entry from queue
     },
-    disconnect: function(socketID){
-        var index = queue.indexOf(socketID);          // get possible queued index of this socket
-        if(index > -1){queue.splice(index, 1);}       // remove queued entry from queue
+    connected: function(socket){
+        var nickname = 'anonERR';
+        if(socket.request.headers.cookie){                                  // if cookie exist
+            var cookieCrums = socket.request.headers.cookie.split('=');     // split correct cookie out
+            var usrInfo = cookie.user(cookieCrums[cookieCrums.length - 1]); // decrypt email from cookie, make it userID
+            if(usrInfo && "user" in usrInfo.content){nickname = usrInfo.content.user.name;} // test if cookie can be assosiated w/a name
+        }
+        sock.xview('trafic', {status:'connected', name:nickname});
+        return nickname;
+    },
+    disconnect: function(socketID, nickname){
+        var index = queue.indexOf(socketID);                                           // get possible queued index of this socket
+        if(index > -1){queue.splice(index, 1);}                                        // remove queued entry from queue
         var openRM = rooms.map(function(each){return each.socket;}).indexOf(socketID); // check if this room is active
-        if(openRM > -1){rooms.splice(openRM, 1);}     // remove room: host has left
-        sock.xview('trafic', {status:'disconnected'});// report disconnect to xview
+        if(openRM > -1){rooms.splice(openRM, 1);}                                      // remove room: host has left
+        sock.xview('trafic', {status: 'disconnected', name: nickname});                // report disconnect to xview
     },
     newRoom: function(socketID, name){
         rooms.push({socket: socketID, room: name});               // push room
@@ -34,7 +44,7 @@ var sock = {
     listen: function(server){
         sock.ets = sock.ets(server);
         sock.ets.on('connection', function(socket){
-            sock.xview('trafic', {status:'connected'});                                 // report connection to xview
+            var nickname = when.connected(socket);                                      // connection event returns nickname from socket headers
             socket.on('newRoom', function(name){when.newRoom(socket.id, name);});       // create active room
             socket.on('knock', function(knock){
                 sock.ets.to(knock.to).emit('knock', {name: knock.from, id: socket.id}); // notify room entry
@@ -43,7 +53,7 @@ var sock = {
             socket.on('chat', function(rtt){sock.ets.to(rtt.to).emit('chat', rtt);});   // emit real time chat to partner
             socket.on('interrupt', function(rtt){sock.ets.to(rtt.to).emit('interrupt', rtt);});
             socket.on('match', function(last){when.match(socket.id, last);});
-            socket.on('disconnect', function(){when.disconnect(socket.id);});
+            socket.on('disconnect', function(){when.disconnect(socket.id, nickname);});
             socket.on('pause', function(){when.disconnect(socket.id);});
             socket.on('kpi', mongo.kpi);
         });
@@ -87,7 +97,6 @@ var mongo = { // depends on: mongoose
         });
         chatMetric.save(function(err){
             if(err){console.log(err);}
-            else{console.log('saved chat metric:' + packet.partners);}
         });
         sock.xview('endchat', packet);                           // send metric to crossview
     },
