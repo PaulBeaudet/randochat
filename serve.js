@@ -74,22 +74,18 @@ var mongo = { // depends on: mongoose
             name: { type: String, required: '{PATH} is required', unique: true }, // Name of user
             password: { type: String, required: '{PATH} is required' },           // user password
             type: {type: String},                                                 // type of account, admin, mod, ect
+            visitors: [String],                                                   // array of visitors (up to 16)
+            num_of_chats: {type: Number}                                          // number of successfull conversations
         }));
-        mongo.room = mongo.db.model('room', new Schema({
-            id: ObjectId,
-            host: {type: String, required: '{PATH} is required', unique: true },  // name of host room
-            visits: [String],                                                     // array of visitors
-            chats: {type: Number}                                                 // number of successfull conversations
-        }));
-        mongo.chat = mongo.db.model('chat', new Schema({
-            id: ObjectId,
-            timestamp: {type: Date, default: Date.now}, // timestamp of end of conversation
-            partners: [String],                         // array of two conversationalist
-            speeds: [Number],                           // array of two wpm counts
-            duration: {type: Number}                    // duration of chat
+        mongo.chat = mongo.db.model('chat', new Schema({                          // schema for key performance metrics
+            id: ObjectId,                                                         // user object property
+            timestamp: {type: Date, default: Date.now},                           // timestamp of end of conversation
+            partners: [String],                                                   // array of two conversationalist
+            speeds: [Number],                                                     // array of two wpm counts
+            duration: {type: Number}                                              // duration of chat
         }));
     },
-    kpi: function(packet){
+    kpi: function(packet){                                                        // record key performance indicators
         var chatMetric = new mongo.chat({
             partners: packet.partners,
             speeds: packet.speeds,
@@ -142,28 +138,33 @@ var userAct = { // dep: mongo
                     });
                 }
             });
-        } else if(req.body.name){                                          // if only name was posted
-            req.session.user = {name: req.body.name, type: 'temp'};        // create temp user & render chat view w/name
+        } else if(req.body.name){                                        // if only name was posted
+            req.session.user = {name: req.body.name, type: 'temp'};      // create temp user & render chat view w/name
             res.render('chat', {csrfToken: req.csrfToken(), active: req.body.name, account: 'temp'});
-        } else {res.render('chat', {csrfToken: req.csrfToken(), active: '', err: 'no info?'});}    // is this really likely
+        } else {res.render('chat', {csrfToken: req.csrfToken(), active: '', err: 'no info?'});} // is this really likely
     },
-    room: function(req, res){ // check if this is a legit room else redirect to randochat
-        mongo.user.findOne({name: req.params.room}, function(err, room){
-            if(room){
+    room: function(req, res){                                            // check if a legit room
+        mongo.user.findOne({name: req.params.room}, function(err, user){ // see if there is a user for this room
+            if(user){
                 var present = ''; // Availabilty of room pervayer, false if pervayer makes request
                 var existingUser = req.session.user ? req.session.user.name : ''; // if(?) user pass name else pass ' '
-                if(existingUser !== room.name){ // if this is a user other than the room pervayer
-                    var openRM = rooms.map(function(each){return each.room;}).indexOf(room.name); // check room activity
-                    if(openRM > -1){present = rooms[openRM].socket;} // give id to ping pervayer when this user gets id
+                if(existingUser !== user.name){                                   // if user other than room pervayer
+                    var openRM = rooms.map(function(each){return each.room;}).indexOf(user.name); // check room activity
+                    if(openRM > -1){present = rooms[openRM].socket;}           // give id to ping pervayer when this user gets id
+                    if(user.visitors.length > 15){user.visitors.splice(0, 1);} // remove oldest vistitor if there are more than 15
+                    user.visitors.push(existingUser);                          // add existing user to visitor list
+                    user.save(function(err){                                   // save visit to database
+                        if(err){console.log('saving visitor:' + err);}         // log out err if applicable
+                    });
                 }
-                res.render('chat', {
+                res.render('chat', {                                 // render chat page for visitor or pervayer
                     csrfToken: req.csrfToken(),
                     active: existingUser,
                     room: req.params.room,
                     account: req.session.user ? req.session.user.type : '',
                     present: present,
                 });  // pass csrf and username
-            } else {
+            } else { // in case this room does not exist let user know
                 res.send(req.params.room + ' does not exist');
             }
         });
