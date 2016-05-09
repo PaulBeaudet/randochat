@@ -16,6 +16,13 @@ var when = {
         sock.ets.to(queued).emit('start', incoming);  // make sure this socket knows it
         queue.splice(queue.indexOf(queued), 1);       // remove queued entry from queue
     },
+    status: function(socketID, status){
+        if(status.ready){                             // given pervayer is signaling ready
+            var queued = queue.indexOf(socketID);     // see if this room pervayer is queued
+            if(queued > -1)queue.splice(queued, 1);   // remove from queue if queued
+        }
+        sock.ets.to(status.to).emit('status', status.ready);      // relay signal
+    },
     connected: function(socket){
         var nickname = 'anonERR';
         if(socket.request.headers.cookie){                                  // if cookie exist
@@ -45,11 +52,12 @@ var sock = {
         sock.ets = sock.ets(server);
         sock.ets.on('connection', function(socket){
             var nickname = when.connected(socket);                                      // connection event returns nickname from socket headers
+            console.log(nickname + ' is connected as ' + socket.id);                    // debug
             socket.on('newRoom', function(name){when.newRoom(socket.id, name);});       // create active room
             socket.on('knock', function(knock){
                 sock.ets.to(knock.to).emit('knock', {name: knock.from, id: socket.id}); // notify room entry
             });
-            socket.on('status', function(status){sock.ets.to(status.to).emit('status', status.ready);});//notify availiblity
+            socket.on('status', function(status){when.status(socket.id, status);});     // notify availiblity
             socket.on('chat', function(rtt){sock.ets.to(rtt.to).emit('chat', rtt);});   // emit real time chat to partner
             socket.on('interrupt', function(rtt){sock.ets.to(rtt.to).emit('interrupt', rtt);});
             socket.on('match', function(last){when.match(socket.id, last);});
