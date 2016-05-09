@@ -154,7 +154,11 @@ var userAct = { // dep: mongo
                     if(user.visitors.length > 15){user.visitors.splice(0, 1);} // remove oldest vistitor if there are more than 15
                     user.visitors.push(existingUser);                          // add existing user to visitor list
                     user.save(function(err){                                   // save visit to database
-                        if(err){console.log('saving visitor:' + err);}         // log out err if applicable
+                        if(err){
+                            sock.xview('error', {when:'saving visitor:', error: err});         // log out err if applicable
+                        } else {
+                            sock.xview('room_entry', {room:user.name, visitor: existingUser}); // show entry to xview on save
+                        }
                     });
                 }
                 res.render('chat', {                                 // render chat page for visitor or pervayer
