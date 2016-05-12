@@ -30,7 +30,7 @@ var when = {
             var usrInfo = cookie.user(cookieCrums[cookieCrums.length - 1]); // decrypt email from cookie, make it userID
             if(usrInfo && "user" in usrInfo.content){nickname = usrInfo.content.user.name;} // test if cookie can be assosiated w/a name
         }
-        sock.xview('trafic', {status:'connected', name:nickname});
+        push.xview('trafic', {status:'connected', name:nickname});
         return nickname;
     },
     disconnect: function(socketID, nickname){
@@ -38,7 +38,7 @@ var when = {
         if(index > -1){queue.splice(index, 1);}                                        // remove queued entry from queue
         var openRM = rooms.map(function(each){return each.socket;}).indexOf(socketID); // check if this room is active
         if(openRM > -1){rooms.splice(openRM, 1);}                                      // remove room: host has left
-        sock.xview('trafic', {status: 'disconnected', name: nickname});                // report disconnect to xview
+        push.xview('trafic', {status: 'disconnected', name: nickname});                // report disconnect to xview
     },
     newRoom: function(socketID, name){
         rooms.push({socket: socketID, room: name});               // push room
@@ -63,12 +63,43 @@ var sock = {
             socket.on('match', function(last){when.match(socket.id, last);});
             socket.on('disconnect', function(){when.disconnect(socket.id, nickname);});
             socket.on('pause', function(){when.disconnect(socket.id);});
-            socket.on('kpi', mongo.kpi);
+            socket.on('kpi', mongo.kpi);                                                // report key performance indicators
+            socket.on('gcm_token', function(token){
+                var existing = push.userTokens.indexOf(token);    // check if this is an existing user
+                if(existing < 0){push.userTokens.push(token);} // push token if this is a new user
+            });      // get google cloud messanging token for xview
         });
+    }
+}
+
+var push = {                  // logic for sending push notifications to crossview
+    gcm: require('node-gcm'), // grab gcm library
+    msg: null,                // placeholder for gcm message object
+    userTokens: [],           // tokens to identify users we can send to
+    sender: null,             // placeholder for sender object
+    connect: function(){
+        push.msg = new push.gcm.Message();
+        push.sender = new push.gcm.Sender(process.env.GCM_API_KEY);
     },
-    xview: function(type, event){            // sends event to crossview
-        event.type = type;                   // tack in event type
-        sock.ets.emit('xview-event', event); // emit event to statistic tracking application
+    xview: function(type, event){
+        if(push.userTokens.length){              // given we have tokens to be sent to
+            var msg = null;
+            if(event.type === 'endchat'){        // given this is a statistic event
+                msg = event.partner[0] + "finished a chat";
+            } else if(event.type === 'trafic'){  // connection or disconnection events
+                msg = event.name + ' ' + event.status;
+            } else if (event.type === 'error'){
+                msg = event.when + event.error;
+            } else if (event.type === 'room_entry'){
+                msg = event.room + "'s room was entered by " + event.visitor;
+            }
+            push.msg.addData({message: msg, title: type});  // message and title needed for push
+            // push.msg.addData(event);                        // add event to payload
+            push.sender.sendNoRetry(push.msg, {registrationTokens: push.userTokens}, function(err, response){
+                if(err){console.log('error:', err);}
+                else   {console.log('response:', response);}
+            });
+        }
     }
 }
 
@@ -102,7 +133,7 @@ var mongo = { // depends on: mongoose
         chatMetric.save(function(err){
             if(err){console.log(err);}
         });
-        sock.xview('endchat', packet);                           // send metric to crossview
+        push.xview('endchat', packet);                           // send metric to crossview
     },
 }
 
@@ -163,9 +194,9 @@ var userAct = { // dep: mongo
                     user.visitors.push(existingUser);                          // add existing user to visitor list
                     user.save(function(err){                                   // save visit to database
                         if(err){
-                            sock.xview('error', {when:'saving visitor:', error: err});         // log out err if applicable
+                            push.xview('error', {when:'saving visitor:', error: err});         // log out err if applicable
                         } else {
-                            sock.xview('room_entry', {room:user.name, visitor: existingUser}); // show entry to xview on save
+                            push.xview('room_entry', {room:user.name, visitor: existingUser}); // show entry to xview on save
                         }
                     });
                 }
@@ -219,4 +250,5 @@ var serve = {
     }
 }
 
-serve.theSite(); //Initiate the site
+push.connect();  // Set-up push notification service
+serve.theSite(); // Initiate the site
