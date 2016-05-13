@@ -38,7 +38,7 @@ var when = {
         if(index > -1){queue.splice(index, 1);}                                        // remove queued entry from queue
         var openRM = rooms.map(function(each){return each.socket;}).indexOf(socketID); // check if this room is active
         if(openRM > -1){rooms.splice(openRM, 1);}                                      // remove room: host has left
-        push.xview('trafic', {status: 'disconnected', name: nickname});                // report disconnect to xview
+        // push.xview('trafic', {status: 'disconnected', name: nickname});             // report disconnect to xview
     },
     newRoom: function(socketID, name){
         rooms.push({socket: socketID, room: name});               // push room
@@ -83,21 +83,19 @@ var push = {                  // logic for sending push notifications to crossvi
     },
     xview: function(type, event){
         if(push.userTokens.length){              // given we have tokens to be sent to
-            var msg = null;
-            if(event.type === 'endchat'){        // given this is a statistic event
-                msg = event.partner[0] + "finished a chat";
-            } else if(event.type === 'trafic'){  // connection or disconnection events
-                msg = event.name + ' ' + event.status;
-            } else if (event.type === 'error'){
-                msg = event.when + event.error;
-            } else if (event.type === 'room_entry'){
-                msg = event.room + "'s room was entered by " + event.visitor;
+            var lineItem = '';
+            if(type === 'endchat'){        // given this is a statistic event
+                lineItem = event.partners[0] + " talked for " + Math.round(event.duration / 1000) + ' sec ' + event.speeds[0] + 'WPM';
+            } else if(type === 'trafic'){  // connection or disconnection events
+                lineItem = event.name + ' ' + event.status;
+            } else if (type === 'error'){
+                lineItem = event.when + event.error;
+            } else if (type === 'room_entry'){
+                lineItem = event.room + "'s room was entered by " + event.visitor;
             }
-            push.msg.addData({message: msg, title: type});  // message and title needed for push
-            // push.msg.addData(event);                        // add event to payload
+            push.msg.addData({message: lineItem, title: type});  // message and title needed for push
             push.sender.sendNoRetry(push.msg, {registrationTokens: push.userTokens}, function(err, response){
                 if(err){console.log('error:', err);}
-                else   {console.log('response:', response);}
             });
         }
     }
