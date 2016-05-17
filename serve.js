@@ -74,6 +74,7 @@ var sock = {
 
 var push = {                  // logic for sending push notifications to crossview
     gcm: require('node-gcm'), // grab gcm library
+    es: 1,
     msg: null,                // placeholder for gcm message object
     userTokens: [],           // tokens to identify users we can send to
     sender: null,             // placeholder for sender object
@@ -93,7 +94,12 @@ var push = {                  // logic for sending push notifications to crossvi
             } else if (type === 'room_entry'){
                 lineItem = event.room + "'s room was entered by " + event.visitor;
             }
-            push.msg.addData({message: lineItem, title: type, style: "inbox", summeryText: "%n% events"}); // message and title needed for push
+            push.msg.addData({
+                message: lineItem, // message and title needed for push
+                title: type,
+                notId: push.es,
+            });
+            push.es++;
             push.sender.sendNoRetry(push.msg, {registrationTokens: push.userTokens}, function(err, response){
                 if(err){console.log('error:', err);}
             });
