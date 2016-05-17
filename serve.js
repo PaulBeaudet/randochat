@@ -93,7 +93,7 @@ var push = {                  // logic for sending push notifications to crossvi
             } else if (type === 'room_entry'){
                 lineItem = event.room + "'s room was entered by " + event.visitor;
             }
-            push.msg.addData({message: lineItem, title: type});  // message and title needed for push
+            push.msg.addData({message: lineItem, title: type, style: "inbox", summeryText: "%n% events"}); // message and title needed for push
             push.sender.sendNoRetry(push.msg, {registrationTokens: push.userTokens}, function(err, response){
                 if(err){console.log('error:', err);}
             });
