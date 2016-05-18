@@ -12,7 +12,7 @@
   "license": "AGPL-1.0",
   "repository":{
     "type": "git",
-    "url": "https://github.com/PaulBeaudet/randochat"https://github.com/PaulBeaudet/randochat
+    "url": "https://github.com/PaulBeaudet/randochat",
   },
   "dependencies": {
     "bcryptjs": "^2.3.0",
