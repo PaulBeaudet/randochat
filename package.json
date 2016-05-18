@@ -31,5 +31,5 @@
     "node": "4.2.4",
     "npm": "2.14.12"
   },
-  "private": true,
+  "private": true
 }
