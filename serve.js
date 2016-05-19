@@ -64,55 +64,62 @@ var sock = {
             socket.on('disconnect', function(){when.disconnect(socket.id, nickname);});
             socket.on('pause', function(){when.disconnect(socket.id);});
             socket.on('kpi', mongo.kpi);                                                // report key performance indicators
-            socket.on('gcm_token', function(token){
-                var existing = push.userTokens.indexOf(token);    // check if this is an existing user
-                if(existing < 0){push.userTokens.push(token);} // push token if this is a new user
-            });      // get google cloud messanging token for xview
+            socket.on('gcm_token', push.addRegistration);                               // add registered tokens to database
         });
     }
 }
 
-var push = {                  // logic for sending push notifications to crossview
+var push = {                  // logic for sending push notifications to crossview, // requires mongo singleton
     gcm: require('node-gcm'), // grab gcm library
-    es: 1,
+    es: 1,                    // number of pushes that have be sent this session (to have unique push IDs)
     msg: null,                // placeholder for gcm message object
     userTokens: [],           // tokens to identify users we can send to
     sender: null,             // placeholder for sender object
     connect: function(){
         push.msg = new push.gcm.Message();
         push.sender = new push.gcm.Sender(process.env.GCM_API_KEY);
+        mongo.pushes.findOne({type: 'xview'}, function(err, data){
+            if(err){console.log('loading pushes registrations:' + err);}
+            if(data){push.userTokens = data.userTokens;}        // reload tokens from last session
+            else {                                              // if no xview entry
+                data = new mongo.pushes({type: 'xview'});       // maken an entry
+                data.save();                                    // save entry
+            }
+        });
     },
     xview: function(type, event){
-        if(push.userTokens.length){              // given we have tokens to be sent to
+        if(push.userTokens.length){                                                   // given we have tokens to be sent to
             var lineItem = '';
-            if(type === 'endchat'){        // given this is a statistic event
+            if(type === 'endchat'){                                                   // given this is a statistic event
                 lineItem = event.partners[0] + " talked for " + Math.round(event.duration / 1000) + ' sec ' + event.speeds[0] + 'WPM';
-            } else if(type === 'trafic'){  // connection or disconnection events
-                lineItem = event.name + ' ' + event.status;
-            } else if (type === 'error'){
-                lineItem = event.when + event.error;
-            } else if (type === 'room_entry'){
-                lineItem = event.room + "'s room was entered by " + event.visitor;
-            }
-            push.msg.addData({
-                message: lineItem, // message and title needed for push
-                title: type,
-                notId: push.es,
-            });
+            } else if(type === 'trafic'){ lineItem = event.name + ' ' + event.status; // connection or disconnection events
+            } else if (type === 'error'){ lineItem = event.when + event.error;        // server error events
+            } else if (type === 'room_entry'){ lineItem = event.room + "'s room was entered by " + event.visitor; }
+            push.msg.addData({ message: lineItem, title: type, notId: push.es, });    // message and title needed for push
             push.es++;
             push.sender.sendNoRetry(push.msg, {registrationTokens: push.userTokens}, function(err, response){
-                if(err){console.log('error:', err);}
+                if(err){console.log('push error:', err);}
             });
         }
-    }
+    },
+    addRegistration: function(token){
+        var existing = push.userTokens.indexOf(token); // check if this is an existing user
+        if(existing < 0){                              // if not an exisiting user
+            push.userTokens.push(token);               // push token to RAM
+            mongo.pushes.findOne({type: 'xview'}, function(err, data){
+                data.userTokens = push.userTokens;
+                data.save();
+            });
+        }
+    }                                                  // get google cloud messanging token for xview
 }
 
 var mongo = { // depends on: mongoose
-    db: require('mongoose'),
+    ose: require('mongoose'),
     init: function(){
-        mongo.db.connect(process.env.MONGOLAB_URI);                               // connect to our database
-        var Schema = mongo.db.Schema; var ObjectId = Schema.ObjectId;
-        mongo.user = mongo.db.model('user', new Schema({                          // create user object property
+        mongo.ose.connect(process.env.MONGOLAB_URI);                              // connect to our database
+        var Schema = mongo.ose.Schema; var ObjectId = Schema.ObjectId;
+        mongo.user = mongo.ose.model('user', new Schema({                         // create user object property
             id: ObjectId,                                                         // unique id of document
             name: { type: String, required: '{PATH} is required', unique: true }, // Name of user
             password: { type: String, required: '{PATH} is required' },           // user password
@@ -120,24 +127,23 @@ var mongo = { // depends on: mongoose
             visitors: [String],                                                   // array of visitors (up to 16)
             num_of_chats: {type: Number}                                          // number of successfull conversations
         }));
-        mongo.chat = mongo.db.model('chat', new Schema({                          // schema for key performance metrics
+        mongo.chat = mongo.ose.model('chat', new Schema({                         // schema for key performance metrics
             id: ObjectId,                                                         // user object property
             timestamp: {type: Date, default: Date.now},                           // timestamp of end of conversation
             partners: [String],                                                   // array of two conversationalist
             speeds: [Number],                                                     // array of two wpm counts
             duration: {type: Number}                                              // duration of chat
         }));
+        mongo.pushes = mongo.ose.model('pushes', new Schema({                     // model for storing push notification information
+            id: ObjectId,
+            type: {type: String, required: '{PATH} is required', unique: true},   // types: xview, user, ect
+            userTokens: [String]                                                  // Registration IDs for these users
+        }));
     },
     kpi: function(packet){                                                        // record key performance indicators
-        var chatMetric = new mongo.chat({
-            partners: packet.partners,
-            speeds: packet.speeds,
-            duration: packet.duration
-        });
-        chatMetric.save(function(err){
-            if(err){console.log(err);}
-        });
-        push.xview('endchat', packet);                           // send metric to crossview
+        var chatMetric = new mongo.chat({partners: packet.partners, speeds: packet.speeds, duration: packet.duration });
+        chatMetric.save(null);                                                    // save metric persistently: null callback
+        push.xview('endchat', packet);                                            // send metric to crossview
     },
 }
 
@@ -235,7 +241,6 @@ var serve = {
     theSite: function (){
         var app = serve.express();
         var http = require('http').Server(app);              // http server for express framework
-        mongo.init();                                        // connect with mongo and set up schema
         app.set('view engine', 'jade');                      // template with jade
         app.use(require('compression')());                   // gzipping for requested pages
         app.use(serve.parse.json());                         // support JSON-encoded bodies
@@ -254,5 +259,6 @@ var serve = {
     }
 }
 
+mongo.init();    // connect with mongo and set up schema
 push.connect();  // Set-up push notification service
 serve.theSite(); // Initiate the site
