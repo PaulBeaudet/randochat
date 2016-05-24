@@ -32,7 +32,6 @@ var convo = {    // handles visual elements of conversation history
         $('.message').remove(); // remove all messages
         convo.items = 0;        // reset number of messages added
         $('#wpm').html('0');    // reset wpm counter
-        // $('#speedo').hide();    // hide your speedo! TODO: make showing your speedo persistent
     }
 }
 
