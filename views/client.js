@@ -28,11 +28,11 @@ var convo = {    // handles visual elements of conversation history
         var textDiv = $('<span class="txt col-xs-8"/>').text(rtt.text);
         $('#history').append($('<div class="row message"/>').append( textDiv, nameDiv));
     },
-    rm: function(){ // called at end of conversation
+    rm: function(){             // called at end of conversation
         $('.message').remove(); // remove all messages
         convo.items = 0;        // reset number of messages added
-        $('#wpm').html('');     // reset wpm counter
-        $('#speedo').hide();    // hide your speedo! TODO: make showing your speedo persistent
+        $('#wpm').html('0');    // reset wpm counter
+        // $('#speedo').hide();    // hide your speedo! TODO: make showing your speedo persistent
     }
 }
 
@@ -61,7 +61,7 @@ var myTurn = {
         myTurn.elapsed = 0;                            // reset elapsed time
         myTurn.idle = 0;                               // reset idle time
         clearTimeout(myTurn.clock);                    // Make sure standing timeout is removed if any
-        myTurn.clock = setTimeout(myTurn.check, 1000); // create new timeout
+        myTurn.clock = setTimeout(myTurn.check, 1000); // create new timeout TODO: There is no gurentee that this is one second
     },
     check: function(){
         myTurn.elapsed++;                   // increment elapsed time
@@ -76,7 +76,7 @@ var myTurn = {
                 pages.toggle('.chat', '.mono');
                 myTurn.clear();
             }
-        } else {myTurn.clock = setTimeout(myTurn.check, 1000);} // set next timeout when still connected
+        } else {myTurn.clock = setTimeout(myTurn.check, 1000);} // set next timeout when still connected TODO: assure real time on check
     },
     wait: function(){
         myTurn.clear();                                         // clear previous data
@@ -109,31 +109,31 @@ var send = {
         } else {send.clear();}                              // not our turn; block input
     },
     clear: function(){
-        $('#textEntry').val(''); // clear out text in entry bar
-        send.empty = true;       // note that text is cleared out of entry bar
+        $('#textEntry').val('');                            // clear out text in entry bar
+        send.empty = true;                                  // note that text is cleared out of entry bar
     }
 }
 
-var MAX_RECORDS = 3; // number of wpm records we care to hold in memory
-var speed = {        // -- handles gathing speed information
-    start: 0,        // when speed started to be recorded
-    me: [],          // personal speed records for average
-    partner: [],     // partner records
-    realTime: function(chars){ // resets on no argument, returns speed with number of chars
+var MAX_RECORDS = 3;                                         // number of wpm records we care to hold in memory
+var speed = {                                                // -- handles gathing speed information
+    start: 0,                                                // when speed started to be recorded
+    me: [],                                                  // personal speed records for average
+    partner: [],                                             // partner records
+    realTime: function(chars){                               // resets on no argument, returns speed with number of chars
         var now = new Date().getTime();
         if(chars){return (60000/((now-speed.start)/chars)/5).toFixed();} // return words per minute
-        else { speed.start = now; }                                      // no param/chars starts the clock
+        else { speed.start = now; }                          // no param/chars starts the clock
     },
-    average: function(wpm, records){                    // call on every message sent
-        if(wpm){records.push(wpm)};                     // as long as wpm is a number add it to array
-        if(records.length > MAX_RECORDS || !wpm){       // take an average if final or max record amount
-            var sum = 0;
-            for(var i=0; i < records.length; i++){      // for every record
-                sum += records[i];                      // add up all records
+    average: function(wpm, records){                         // call on every message sent
+        if(wpm){records.push(wpm)};                          // as long as wpm is a number add it to array
+        if(records.length > MAX_RECORDS || !wpm){            // take an average if final or max record amount
+            var avg = 0;
+            for(var i=0; i < records.length; i++){           // for every record
+                avg += records[i];                           // add up all records
             }
-            var avg = (sum / records.length).toFixed(); // get average of records
-            records = [];                               // erase old records
-            if(wpm){records.push(parseInt(avg));}       // besides final, roll back into array
+            if(avg){avg = (avg / records.length).toFixed();} // get average of records
+            records.splice(0, records.length);               // erase old records
+            if(wpm){records.push(parseInt(avg));}            // besides final, roll back into array
             return avg;
         }
     }
