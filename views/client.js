@@ -215,7 +215,7 @@ var host = {
     tTime: TRANSFER_WAIT + 1,
     timer: 0,
     openRM: function(active){                       // on hosting a room
-        $('#brand').html('randochat/' + sock.nick); // Set default as their room
+        $('#brand').html('Yibble/' + sock.nick); // Set default as their room
         $('#speedToggle').show().on('click', function(){
             if($('#speedToggle').text() === 'show speed'){
                 $('#speedo').show();
