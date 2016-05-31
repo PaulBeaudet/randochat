@@ -43,19 +43,19 @@ block content
                     button#resume.btn.btn-success back to chatting
             li.view.name
                 #signup.jumbotron
-                    h1 What is your NAME?*
+                    h1 Just a name would be good
                     form(method='post')
                         input(type='hidden', name="_csrf", value=csrfToken)
                         .form-group
-                            label(for='usr') NAME, (only requirment to continue)
+                            label(for='usr') Name (only requirment to continue)
                             input.form-control(type='text' maxlength='15', name='name', required='true')
                         .form-group
-                            label(for='signupPassword')  Password (optional, with account)
+                            label(for='signupPassword')  Password (optional, test paid features)
                             input.form-control(type='password', name='password')
                         if err
                             p Taken name or wrong password, TO THE ABYSS! WOOSH! error= #{err}
                         input#submit.btn.btn-lg.btn-success(type='submit', value='Ready to chat!')
-                i *subject to ask for favorite color and quest at later date
+                i QUICK DISCLAIMER: This appliaction is in early testing phases. The application is provided "AS IS", without warrenty of any kind, express or implied, including but not limited to the warrenties of merchantability, fitness for a a particular purpose and noninfringement. In no event shall the author be liable for any claim, damages or other liability, whether in action of of contract, tort or otherwise, arising from, out of or in connection with the application or the use or other dealings in the application. Use of the application constitues acceptence of these terms. Disclaimers for sue happy society being said, the author appriciates any feedback on the merchantability of application and will take your feedback at either yibble.herokuapp.com/paulbeaudet or inof8or@gmail.com 
     // Javescript dependencies
     script(src='https://code.jquery.com/jquery-2.2.4.min.js' 
            integrity='sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44='

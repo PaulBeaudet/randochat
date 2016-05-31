@@ -206,7 +206,7 @@ var visitor = {
             setTimeout(visitor.countDown, 1000);
         } else {            // final act
             visitor.cCount = TRANSFER_WAIT + 1;
-            visitor.initChat('is eating pie');
+            visitor.initChat('is busy');
         }
     }
 }
